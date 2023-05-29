@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "outDir": "./lib/",
+    "target": "es6",
+    "module": "es6",
+    "moduleResolution": "node",
+    "baseUrl": "./src",
+    "sourceMap": true
+  }
+}

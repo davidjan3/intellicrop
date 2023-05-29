@@ -1,0 +1,22 @@
+{
+  "name": "intellicrop",
+  "version": "1.0.0",
+  "description": "Simple JavaScript solution to edge detection assisted image cropping",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "davidjan3",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^5.0.4"
+  },
+  "files": [
+    "lib/**/*"
+  ],
+  "dependencies": {
+    "@techstark/opencv-js": "^4.7.0-release.1",
+    "@types/node": "^20.2.5"
+  }
+}
