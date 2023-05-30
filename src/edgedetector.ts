@@ -1,5 +1,5 @@
 import * as cv from "@techstark/opencv-js/";
-import { Corners } from "./cropper.js";
+import { Corners } from "./cropper";
 
 export default class EdgeDetector {
   static detect(src: cv.Mat): Corners | undefined {

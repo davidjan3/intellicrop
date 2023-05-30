@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
-    "outDir": "./lib/",
+    "outDir": "./dist/",
+    "module": "commonjs",
     "target": "es6",
-    "module": "es6",
-    "moduleResolution": "node",
+    "lib": ["es6", "dom"],
     "baseUrl": "./src",
     "sourceMap": true
   }

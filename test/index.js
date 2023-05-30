@@ -1,4 +1,4 @@
-import Cropper from "../lib/cropper.js";
+import Cropper from "../dist/intellicrop.js";
 
 const fileUploadEl = document.getElementById("file-upload");
 const srcImgEl = document.getElementById("src-image");

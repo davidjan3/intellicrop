@@ -1,5 +1,5 @@
 import * as cv from "@techstark/opencv-js/";
-import EdgeDetector from "./edgedetector.js";
+import EdgeDetector from "./edgedetector";
 
 export type Pt = [number, number];
 
