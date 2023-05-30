@@ -3,6 +3,7 @@ import Cropper from "../dist/intellicrop.js";
 const fileUploadEl = document.getElementById("file-upload");
 const srcImgEl = document.getElementById("src-image");
 const theCanvas = document.getElementById("the-canvas");
+const theButton = document.getElementById("the-button");
 
 fileUploadEl.addEventListener(
   "change",
@@ -13,6 +14,12 @@ fileUploadEl.addEventListener(
 );
 
 srcImgEl.onload = () => {
-  const cropper = new Cropper(theCanvas, srcImgEl);
+  const cropper = new Cropper(theCanvas, srcImgEl, {
+    useEdgeDetection: false,
+    theme: { cornerRadius: 20, marginSize: 20 },
+  });
+  theButton.onclick = () => {
+    cropper.getResult();
+  };
   console.log(cropper);
 };
