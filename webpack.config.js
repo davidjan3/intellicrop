@@ -23,6 +23,7 @@ module.exports = {
   output: {
     filename: "intellicrop.js",
     path: path.resolve(__dirname, "dist"),
+    publicPath: "/dist/",
     library: {
       type: "module",
     },
