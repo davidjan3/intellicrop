@@ -6,8 +6,8 @@ export type Pt = [number, number];
 export interface Corners {
   tl: Pt;
   tr: Pt;
-  bl: Pt;
   br: Pt;
+  bl: Pt;
 }
 
 export interface CropperTheme {
@@ -63,6 +63,7 @@ export default class Cropper {
     canvas.width = this.imgW + this.options.theme.marginSize * 2;
     canvas.height = this.imgH + this.options.theme.marginSize * 2;
 
+    EdgeDetector.detect(this.imgMat); // For show
     if (options.useEdgeDetection) {
       const corners = EdgeDetector.detect(this.imgMat);
       if (corners) {
@@ -111,11 +112,28 @@ export default class Cropper {
     this.ctx.fillStyle = this.options.theme.backgroundColor;
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.drawImage(this.img, ...this.img2ctxPt([0, 0]), this.imgW, this.imgH);
-    for (const key in this.corners) {
+    const cornerKeys = ["tl", "tr", "br", "bl"]; //Object.keys would give wrong order
+
+    for (let i = 0; i < cornerKeys.length; i++) {
+      const key = cornerKeys[i];
+      const nextKey = cornerKeys[(i + 1) % cornerKeys.length];
       const corner = this.corners[key];
+      const nextCorner = this.corners[nextKey];
+      const cornerPt = this.img2ctxPt([corner[0], corner[1]]);
+      const nextCornerPt = this.img2ctxPt([nextCorner[0], nextCorner[1]]);
+
+      //Draw line to next corner
+      this.ctx.beginPath();
+      this.ctx.strokeStyle = this.options.theme.lineColor;
+      this.ctx.lineWidth = this.options.theme.lineThickness;
+      this.ctx.moveTo(...cornerPt);
+      this.ctx.lineTo(...nextCornerPt);
+      this.ctx.stroke();
+
+      //Draw corner
       this.ctx.beginPath();
       this.ctx.fillStyle = this.options.theme.cornerColor;
-      this.ctx.arc(...this.img2ctxPt([corner[0], corner[1]]), this.options.theme.cornerRadius, 0, 2 * Math.PI);
+      this.ctx.arc(...cornerPt, this.options.theme.cornerRadius, 0, 2 * Math.PI);
       this.ctx.fill();
     }
   }
@@ -129,6 +147,7 @@ export default class Cropper {
       ...this.corners.bl,
       ...this.corners.br,
     ]);
+    //Make new size from srcTri?
     let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, this.imgW, 0, 0, this.imgH, this.imgW, this.imgH]);
     let M = cv.getPerspectiveTransform(srcTri, dstTri);
     cv.warpPerspective(this.imgMat, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());

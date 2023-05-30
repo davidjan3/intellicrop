@@ -2,30 +2,32 @@ import * as cv from "@techstark/opencv-js/";
 import { Corners } from "./cropper";
 
 export default class EdgeDetector {
+  private static readonly RHO_THRES = 0.1;
+  private static readonly THETA_THRES = 0.1;
+
   static detect(src: cv.Mat): Corners | undefined {
-    const dst = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
+    let dst: cv.Mat = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
     const lines = new cv.Mat();
 
-    cv.cvtColor(src, src, cv.COLOR_RGBA2GRAY, 0);
-    cv.Canny(src, dst, 160, 160, 3, true); // You can try more different parameters
-    cv.cvtColor(src, src, cv.COLOR_GRAY2RGBA, 0);
+    cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
+    cv.Canny(dst, dst, 300, 300, 3, true); // You can try more different parameters
     cv.HoughLines(dst, lines, 1, Math.PI / 180, 80, 0, 0, 0, Math.PI);
+    dst = src.clone();
     // draw lines
-    for (let i = 0; i < lines.rows; ++i) {
+    for (let i = 0; i < Math.min(lines.rows, 4); ++i) {
       let rho = lines.data32F[i * 2];
       let theta = lines.data32F[i * 2 + 1];
+      console.log(rho, theta);
       let a = Math.cos(theta);
       let b = Math.sin(theta);
       let x0 = a * rho;
       let y0 = b * rho;
-      let startPoint = { x: x0 - 1000 * b, y: y0 + 1000 * a };
-      let endPoint = { x: x0 + 1000 * b, y: y0 - 1000 * a };
-      cv.line(src, startPoint, endPoint, [255, 0, 0, 255]);
+      let startPoint = { x: x0 - 10000 * b, y: y0 + 10000 * a };
+      let endPoint = { x: x0 + 10000 * b, y: y0 - 10000 * a };
+      cv.line(dst, startPoint, endPoint, [255, 0, 0, 255], 4);
     }
-    cv.imshow("the-canvas", src); // display the output to canvas
+    cv.imshow("the-other-canvas", dst); // display the output to canvas
 
-    src.delete(); // remember to free the memory
-    dst.delete();
     return { tl: [0, 0], tr: [0, 0], bl: [0, 0], br: [0, 0] };
   }
 }
