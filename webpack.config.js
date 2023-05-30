@@ -4,6 +4,7 @@ module.exports = {
   context: path.resolve(__dirname, "src"),
   entry: "./cropper.ts",
   mode: "development",
+  devtool: "source-map",
   module: {
     rules: [
       {
