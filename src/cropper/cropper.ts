@@ -1,14 +1,18 @@
-import * as cv from "@techstark/opencv-js/";
-import EdgeDetector from "../edge-detector.ts/edgedetector";
+import {
+  Mat,
+  imread,
+  imshow,
+  Size,
+  CV_32FC2,
+  getPerspectiveTransform,
+  warpPerspective,
+  matFromArray,
+  INTER_LINEAR,
+  BORDER_CONSTANT,
+  Scalar,
+} from "@techstark/opencv-js/";
 
-export type Pt = [number, number];
-
-export interface Corners {
-  tl: Pt;
-  tr: Pt;
-  br: Pt;
-  bl: Pt;
-}
+import EdgeDetector from "../edge-detector/edgedetector";
 
 export interface CropperTheme {
   marginSize?: number;
@@ -29,7 +33,7 @@ export default class Cropper {
   private readonly canvas: HTMLCanvasElement;
   private readonly ctx: CanvasRenderingContext2D;
   private readonly img: HTMLImageElement;
-  private readonly imgMat: cv.Mat;
+  private readonly imgMat: Mat;
   private readonly options: CropperOptions;
   private readonly imgW: number;
   private readonly imgH: number;
@@ -56,7 +60,7 @@ export default class Cropper {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d")!;
     this.img = img;
-    this.imgMat = cv.imread(img);
+    this.imgMat = imread(img);
     this.options = {
       useEdgeDetection:
         options.useEdgeDetection ?? defaultOptions.useEdgeDetection,
@@ -162,16 +166,16 @@ export default class Cropper {
   }
 
   public getResult() {
-    let dst = new cv.Mat();
-    let dsize = new cv.Size(this.imgW, this.imgH);
-    let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+    let dst = new Mat();
+    let dsize = new Size(this.imgW, this.imgH);
+    let srcTri = matFromArray(4, 1, CV_32FC2, [
       ...this.corners.tl,
       ...this.corners.tr,
       ...this.corners.bl,
       ...this.corners.br,
     ]);
     //Make new size from srcTri?
-    let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+    let dstTri = matFromArray(4, 1, CV_32FC2, [
       0,
       0,
       this.imgW,
@@ -181,18 +185,18 @@ export default class Cropper {
       this.imgW,
       this.imgH,
     ]);
-    let M = cv.getPerspectiveTransform(srcTri, dstTri);
-    cv.warpPerspective(
+    let M = getPerspectiveTransform(srcTri, dstTri);
+    warpPerspective(
       this.imgMat,
       dst,
       M,
       dsize,
-      cv.INTER_LINEAR,
-      cv.BORDER_CONSTANT,
-      new cv.Scalar()
+      INTER_LINEAR,
+      BORDER_CONSTANT,
+      new Scalar()
     );
 
-    cv.imshow(this.canvas, dst);
+    imshow(this.canvas, dst);
   }
 
   private img2ctxPt(imgPt: Pt): Pt {
