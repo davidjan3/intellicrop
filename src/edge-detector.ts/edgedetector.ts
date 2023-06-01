@@ -1,5 +1,5 @@
 import * as cv from "@techstark/opencv-js/";
-import { Corners } from "./cropper";
+import { Corners } from "../cropper/cropper";
 
 export default class EdgeDetector {
   private static readonly RHO_THRES = 0.5;
@@ -47,7 +47,12 @@ export default class EdgeDetector {
         dst,
         startPoint,
         endPoint,
-        [255 * (c / filteredLines.length), 255 - 255 * (c / filteredLines.length), 127, 255],
+        [
+          255 * (c / filteredLines.length),
+          255 - 255 * (c / filteredLines.length),
+          127,
+          255,
+        ],
         4
       );
       c++;
@@ -57,7 +62,12 @@ export default class EdgeDetector {
     return { tl: [0, 0], tr: [0, 0], bl: [0, 0], br: [0, 0] };
   }
 
-  private static loopDiff(n0: number, n1: number, min: number, max: number): number {
+  private static loopDiff(
+    n0: number,
+    n1: number,
+    min: number,
+    max: number
+  ): number {
     const range = max - min;
     const difference = Math.abs(n0 - n1);
     const loopedDifference = range - difference;

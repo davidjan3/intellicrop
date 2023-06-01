@@ -1,5 +1,5 @@
 import * as cv from "@techstark/opencv-js/";
-import EdgeDetector from "./edgedetector";
+import EdgeDetector from "../edge-detector.ts/edgedetector";
 
 export type Pt = [number, number];
 
@@ -35,7 +35,11 @@ export default class Cropper {
   private readonly imgH: number;
   private corners: Corners;
 
-  constructor(canvas: HTMLCanvasElement, img: HTMLImageElement, options?: CropperOptions) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    img: HTMLImageElement,
+    options?: CropperOptions
+  ) {
     const defaultOptions = {
       useEdgeDetection: true,
       theme: {
@@ -54,7 +58,8 @@ export default class Cropper {
     this.img = img;
     this.imgMat = cv.imread(img);
     this.options = {
-      useEdgeDetection: options.useEdgeDetection ?? defaultOptions.useEdgeDetection,
+      useEdgeDetection:
+        options.useEdgeDetection ?? defaultOptions.useEdgeDetection,
       theme: Object.assign(defaultOptions.theme, options?.theme),
     };
     this.imgW = this.imgMat.cols;
@@ -71,7 +76,12 @@ export default class Cropper {
       }
     }
     if (!this.corners) {
-      this.corners = { tl: [0, 0], tr: [this.imgW, 0], bl: [0, this.imgH], br: [this.imgW, this.imgH] };
+      this.corners = {
+        tl: [0, 0],
+        tr: [this.imgW, 0],
+        bl: [0, this.imgH],
+        br: [this.imgW, this.imgH],
+      };
     }
 
     this.registerListener();
@@ -99,7 +109,10 @@ export default class Cropper {
     });
     this.canvas.addEventListener("mousemove", (event) => {
       if (draggingCorner) {
-        this.corners[draggingCorner] = this.cl2imgPt([event.clientX, event.clientY]);
+        this.corners[draggingCorner] = this.cl2imgPt([
+          event.clientX,
+          event.clientY,
+        ]);
         this.render();
       }
     });
@@ -111,7 +124,12 @@ export default class Cropper {
   private render() {
     this.ctx.fillStyle = this.options.theme.backgroundColor;
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.drawImage(this.img, ...this.img2ctxPt([0, 0]), this.imgW, this.imgH);
+    this.ctx.drawImage(
+      this.img,
+      ...this.img2ctxPt([0, 0]),
+      this.imgW,
+      this.imgH
+    );
     const cornerKeys = ["tl", "tr", "br", "bl"]; //Object.keys would give wrong order
 
     for (let i = 0; i < cornerKeys.length; i++) {
@@ -133,7 +151,12 @@ export default class Cropper {
       //Draw corner
       this.ctx.beginPath();
       this.ctx.fillStyle = this.options.theme.cornerColor;
-      this.ctx.arc(...cornerPt, this.options.theme.cornerRadius, 0, 2 * Math.PI);
+      this.ctx.arc(
+        ...cornerPt,
+        this.options.theme.cornerRadius,
+        0,
+        2 * Math.PI
+      );
       this.ctx.fill();
     }
   }
@@ -148,25 +171,51 @@ export default class Cropper {
       ...this.corners.br,
     ]);
     //Make new size from srcTri?
-    let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, this.imgW, 0, 0, this.imgH, this.imgW, this.imgH]);
+    let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+      0,
+      0,
+      this.imgW,
+      0,
+      0,
+      this.imgH,
+      this.imgW,
+      this.imgH,
+    ]);
     let M = cv.getPerspectiveTransform(srcTri, dstTri);
-    cv.warpPerspective(this.imgMat, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+    cv.warpPerspective(
+      this.imgMat,
+      dst,
+      M,
+      dsize,
+      cv.INTER_LINEAR,
+      cv.BORDER_CONSTANT,
+      new cv.Scalar()
+    );
 
     cv.imshow(this.canvas, dst);
   }
 
   private img2ctxPt(imgPt: Pt): Pt {
-    return [imgPt[0] + this.options.theme.marginSize, imgPt[1] + this.options.theme.marginSize];
+    return [
+      imgPt[0] + this.options.theme.marginSize,
+      imgPt[1] + this.options.theme.marginSize,
+    ];
   }
 
   private ctx2imgPt(ctxPt: Pt): Pt {
-    return [ctxPt[0] - this.options.theme.marginSize, ctxPt[1] - this.options.theme.marginSize];
+    return [
+      ctxPt[0] - this.options.theme.marginSize,
+      ctxPt[1] - this.options.theme.marginSize,
+    ];
   }
 
   private cl2imgPt(clPt: Pt): Pt {
     const bounds = this.canvas.getBoundingClientRect();
     const sX = this.canvas.width / bounds.width;
     const sY = this.canvas.height / bounds.height;
-    return this.ctx2imgPt([(clPt[0] - bounds.left) * sX, (clPt[1] - bounds.top) * sY]);
+    return this.ctx2imgPt([
+      (clPt[0] - bounds.left) * sX,
+      (clPt[1] - bounds.top) * sY,
+    ]);
   }
 }
