@@ -140,19 +140,22 @@ export default class Cropper {
 
   public getResult() {
     let dst = new cv.Mat();
-    let dsize = new cv.Size(this.imgW, this.imgH);
     let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
       ...this.corners.tl,
       ...this.corners.tr,
       ...this.corners.bl,
       ...this.corners.br,
-    ]);
-    //Make new size from srcTri?
-    let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, this.imgW, 0, 0, this.imgH, this.imgW, this.imgH]);
+    ]); //Make new size from srcTri?
+    const w = (Cropper.ptDiff(this.corners.tl, this.corners.tr) + Cropper.ptDiff(this.corners.bl, this.corners.br)) / 2;
+    const h = (Cropper.ptDiff(this.corners.tl, this.corners.bl) + Cropper.ptDiff(this.corners.tr, this.corners.br)) / 2;
+    let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, 0, h, w, h]);
     let M = cv.getPerspectiveTransform(srcTri, dstTri);
-    cv.warpPerspective(this.imgMat, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
-
+    cv.warpPerspective(this.imgMat, dst, M, new cv.Size(w, h), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
     cv.imshow(this.canvas, dst);
+  }
+
+  private static ptDiff(pt0: Pt, pt1: Pt) {
+    return Math.sqrt(Math.pow(pt0[0] - pt1[0], 2) + Math.pow(pt0[1] - pt1[1], 2));
   }
 
   private img2ctxPt(imgPt: Pt): Pt {
