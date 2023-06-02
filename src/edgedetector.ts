@@ -1,5 +1,10 @@
 import * as cv from "@techstark/opencv-js/";
-import { Corners } from "./cropper";
+import { Corners, Pt } from "./cropper";
+
+type Line = {
+  rho: number;
+  theta: number;
+};
 
 export default class EdgeDetector {
   private static readonly RHO_THRES = 0.5;
@@ -7,50 +12,57 @@ export default class EdgeDetector {
 
   static detect(src: cv.Mat): Corners | undefined {
     let dst: cv.Mat = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
-    const lines = new cv.Mat();
+    const linesArr = new cv.Mat();
+    const bounds = this.areaToBounds(100000, src.cols / src.rows);
 
     cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
-    cv.Canny(dst, dst, 300, 300, 3, true);
-    cv.HoughLines(dst, lines, 1, Math.PI / 180, 80, 0, 0, 0, Math.PI);
+    cv.resize(dst, dst, new cv.Size(...bounds));
+    cv.Canny(dst, dst, 160, 160, 3, true);
+    cv.HoughLines(dst, linesArr, 1, Math.PI / 180, 80, 0, 0, 0, Math.PI);
     dst = src.clone();
 
-    const filteredLines: [number, number][] = [];
+    const lines: Line[] = [];
     // draw lines
-    for (let i = 0; i < lines.rows && filteredLines.length < 4; i++) {
-      let rho = lines.data32F[i * 2];
-      let theta = lines.data32F[i * 2 + 1];
-      console.log(rho, theta);
+    for (let i = 0; i < linesArr.rows; i++) {
+      let rho = linesArr.data32F[i * 2];
+      let theta = linesArr.data32F[i * 2 + 1];
 
       if (
         i === 0 ||
-        !filteredLines.some(
+        !lines.some(
           (l) =>
-            Math.abs(rho - l[0]) < this.RHO_THRES * lines.rows &&
-            this.loopDiff(theta, l[1], 0, Math.PI) < this.THETA_THRES
+            Math.abs(rho - l.rho) < this.RHO_THRES * linesArr.rows &&
+            this.loopDiff(theta, l.theta, 0, Math.PI) < this.THETA_THRES
         )
       ) {
-        filteredLines.push([rho, theta]);
+        lines.push({ rho, theta });
       }
     }
 
-    let c = 0;
-    for (const line of filteredLines) {
-      const rho = line[0];
-      const theta = line[1];
+    const intersections = this.getIntersections(lines);
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const rho = line.rho * (src.cols / bounds[0]);
+      const theta = line.theta;
       let a = Math.cos(theta);
       let b = Math.sin(theta);
       let x0 = a * rho;
       let y0 = b * rho;
       let startPoint = { x: x0 - 10000 * b, y: y0 + 10000 * a };
       let endPoint = { x: x0 + 10000 * b, y: y0 - 10000 * a };
-      cv.line(
+      cv.line(dst, startPoint, endPoint, [255 * (i / lines.length), 255 - 255 * (i / lines.length), 127, 255], 4);
+    }
+
+    for (let i = 0; i < intersections.length; i++) {
+      const intersection = intersections[i];
+      cv.circle(
         dst,
-        startPoint,
-        endPoint,
-        [255 * (c / filteredLines.length), 255 - 255 * (c / filteredLines.length), 127, 255],
+        new cv.Point(intersection[0] * (src.cols / bounds[0]), intersection[1] * (src.cols / bounds[0])),
+        20,
+        [255 * (i / intersections.length), 255 - 255 * (i / intersections.length), 127, 255],
         4
       );
-      c++;
     }
     cv.imshow("the-other-canvas", dst);
 
@@ -62,5 +74,38 @@ export default class EdgeDetector {
     const difference = Math.abs(n0 - n1);
     const loopedDifference = range - difference;
     return Math.min(difference, loopedDifference);
+  }
+
+  private static areaToBounds(area: number, aspectRatio: number): [number, number] {
+    const n0 = Math.sqrt(area * aspectRatio);
+    const n1 = area / n0;
+    return [n0, n1];
+  }
+
+  private static getIntersections(lines: Line[]): Pt[] {
+    const intersections: Pt[] = [];
+
+    for (let i = 0; i < lines.length - 1; i++) {
+      const l0 = lines[i];
+
+      for (let j = i + 1; j < lines.length; j++) {
+        const l1 = lines[j];
+
+        const cosTheta1 = Math.cos(l0.theta);
+        const sinTheta1 = Math.sin(l0.theta);
+        const cosTheta2 = Math.cos(l1.theta);
+        const sinTheta2 = Math.sin(l1.theta);
+
+        const denominator = cosTheta1 * sinTheta2 - sinTheta1 * cosTheta2;
+
+        if (denominator !== 0) {
+          const x = (sinTheta2 * l0.rho - sinTheta1 * l1.rho) / denominator;
+          const y = (-cosTheta2 * l0.rho + cosTheta1 * l1.rho) / denominator;
+          intersections.push([x, y]);
+        }
+      }
+    }
+
+    return intersections;
   }
 }
