@@ -91,16 +91,16 @@ export default class EdgeDetector {
       for (let j = i + 1; j < lines.length; j++) {
         const l1 = lines[j];
 
-        const cosTheta1 = Math.cos(l0.theta);
-        const sinTheta1 = Math.sin(l0.theta);
-        const cosTheta2 = Math.cos(l1.theta);
-        const sinTheta2 = Math.sin(l1.theta);
+        const cosTheta0 = Math.cos(l0.theta);
+        const sinTheta0 = Math.sin(l0.theta);
+        const cosTheta1 = Math.cos(l1.theta);
+        const sinTheta1 = Math.sin(l1.theta);
 
-        const denominator = cosTheta1 * sinTheta2 - sinTheta1 * cosTheta2;
+        const denominator = cosTheta0 * sinTheta1 - sinTheta0 * cosTheta1;
 
         if (denominator !== 0) {
-          const x = (sinTheta2 * l0.rho - sinTheta1 * l1.rho) / denominator;
-          const y = (-cosTheta2 * l0.rho + cosTheta1 * l1.rho) / denominator;
+          const x = (sinTheta1 * l0.rho - sinTheta0 * l1.rho) / denominator;
+          const y = (cosTheta0 * l1.rho - cosTheta1 * l0.rho) / denominator;
           intersections.push([x, y]);
         }
       }
