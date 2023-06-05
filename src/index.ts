@@ -1,11 +1,11 @@
-import Cropper from "../dist/intellicrop.js";
+import Cropper from "./cropper/cropper.js";
 
-const fileUploadEl = document.getElementById("file-upload");
-const srcImgEl = document.getElementById("src-image");
-const theCanvas = document.getElementById("the-canvas");
-const theButton = document.getElementById("the-button");
+const fileUploadEl: any = document.getElementById("file-upload");
+const srcImgEl: any = document.getElementById("src-image");
+const theCanvas: any = document.getElementById("the-canvas");
+const theButton: any = document.getElementById("the-button");
 
-fileUploadEl.addEventListener(
+fileUploadEl?.addEventListener(
   "change",
   function (e) {
     srcImgEl.src = URL.createObjectURL(e.target.files[0]);

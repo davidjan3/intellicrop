@@ -1,6 +1,6 @@
 import * as cv from "@techstark/opencv-js/";
-import EdgeDetector from "./edgedetector";
-import Util, { Corners, Pt } from "./util";
+import EdgeDetector from "../edge-detector/edgedetector";
+import Util, { Corners, Pt } from "../util";
 
 export interface CropperTheme {
   marginSize?: number;
@@ -62,7 +62,12 @@ export default class Cropper {
       }
     }
     if (!this.corners) {
-      this.corners = { tl: [0, 0], tr: [this.imgW, 0], bl: [0, this.imgH], br: [this.imgW, this.imgH] };
+      this.corners = {
+        tl: [0, 0],
+        tr: [this.imgW, 0],
+        bl: [0, this.imgH],
+        br: [this.imgW, this.imgH],
+      };
     }
 
     this.registerListener();

@@ -1,5 +1,5 @@
 import * as cv from "@techstark/opencv-js/";
-import Util, { Corners, Line, Pt } from "./util";
+import Util, { Line } from "../util";
 
 type ScoredLine = Line & { score: number };
 
