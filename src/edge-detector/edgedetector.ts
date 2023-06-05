@@ -1,17 +1,25 @@
-import * as cv from "@techstark/opencv-js/";
-import { Corners } from "./cropper";
+import {
+  cvtColor,
+  Canny,
+  HoughLines,
+  Mat,
+  CV_8UC3,
+  COLOR_RGBA2GRAY,
+  line,
+  imshow,
+} from "@techstark/opencv-js/";
 
 export default class EdgeDetector {
   private static readonly RHO_THRES = 0.5;
   private static readonly THETA_THRES = 0.33 * Math.PI;
 
-  static detect(src: cv.Mat): Corners | undefined {
-    let dst: cv.Mat = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
-    const lines = new cv.Mat();
+  static detect(src: Mat): Corners | undefined {
+    let dst: Mat = Mat.zeros(src.rows, src.cols, CV_8UC3);
+    const lines = new Mat();
 
-    cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
-    cv.Canny(dst, dst, 300, 300, 3, true);
-    cv.HoughLines(dst, lines, 1, Math.PI / 180, 80, 0, 0, 0, Math.PI);
+    cvtColor(src, dst, COLOR_RGBA2GRAY, 0);
+    Canny(dst, dst, 300, 300, 3, true);
+    HoughLines(dst, lines, 1, Math.PI / 180, 80, 0, 0, 0, Math.PI);
     dst = src.clone();
 
     const filteredLines: [number, number][] = [];
@@ -34,30 +42,40 @@ export default class EdgeDetector {
     }
 
     let c = 0;
-    for (const line of filteredLines) {
-      const rho = line[0];
-      const theta = line[1];
+    for (const filterLine of filteredLines) {
+      const rho = filterLine[0];
+      const theta = filterLine[1];
       let a = Math.cos(theta);
       let b = Math.sin(theta);
       let x0 = a * rho;
       let y0 = b * rho;
       let startPoint = { x: x0 - 10000 * b, y: y0 + 10000 * a };
       let endPoint = { x: x0 + 10000 * b, y: y0 - 10000 * a };
-      cv.line(
+      line(
         dst,
         startPoint,
         endPoint,
-        [255 * (c / filteredLines.length), 255 - 255 * (c / filteredLines.length), 127, 255],
+        [
+          255 * (c / filteredLines.length),
+          255 - 255 * (c / filteredLines.length),
+          127,
+          255,
+        ],
         4
       );
       c++;
     }
-    cv.imshow("the-other-canvas", dst);
+    imshow("the-other-canvas", dst);
 
     return { tl: [0, 0], tr: [0, 0], bl: [0, 0], br: [0, 0] };
   }
 
-  private static loopDiff(n0: number, n1: number, min: number, max: number): number {
+  private static loopDiff(
+    n0: number,
+    n1: number,
+    min: number,
+    max: number
+  ): number {
     const range = max - min;
     const difference = Math.abs(n0 - n1);
     const loopedDifference = range - difference;
