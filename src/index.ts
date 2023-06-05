@@ -15,7 +15,7 @@ fileUploadEl?.addEventListener(
 
 srcImgEl.onload = () => {
   const cropper = new Cropper(theCanvas, srcImgEl, {
-    useEdgeDetection: false,
+    useEdgeDetection: true,
     theme: { cornerRadius: 20, marginSize: 20 },
   });
   theButton.onclick = () => {
