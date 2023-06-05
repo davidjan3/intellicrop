@@ -1,14 +1,6 @@
 import * as cv from "@techstark/opencv-js/";
 import EdgeDetector from "./edgedetector";
-
-export type Pt = [number, number];
-
-export interface Corners {
-  tl: Pt;
-  tr: Pt;
-  br: Pt;
-  bl: Pt;
-}
+import Util, { Corners, Pt } from "./util";
 
 export interface CropperTheme {
   marginSize?: number;
@@ -63,7 +55,6 @@ export default class Cropper {
     canvas.width = this.imgW + this.options.theme.marginSize * 2;
     canvas.height = this.imgH + this.options.theme.marginSize * 2;
 
-    EdgeDetector.detect(this.imgMat); // For show
     if (options.useEdgeDetection) {
       const corners = EdgeDetector.detect(this.imgMat);
       if (corners) {
@@ -146,16 +137,12 @@ export default class Cropper {
       ...this.corners.bl,
       ...this.corners.br,
     ]); //Make new size from srcTri?
-    const w = (Cropper.ptDiff(this.corners.tl, this.corners.tr) + Cropper.ptDiff(this.corners.bl, this.corners.br)) / 2;
-    const h = (Cropper.ptDiff(this.corners.tl, this.corners.bl) + Cropper.ptDiff(this.corners.tr, this.corners.br)) / 2;
+    const w = (Util.ptDiff(this.corners.tl, this.corners.tr) + Util.ptDiff(this.corners.bl, this.corners.br)) / 2;
+    const h = (Util.ptDiff(this.corners.tl, this.corners.bl) + Util.ptDiff(this.corners.tr, this.corners.br)) / 2;
     let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, 0, h, w, h]);
     let M = cv.getPerspectiveTransform(srcTri, dstTri);
     cv.warpPerspective(this.imgMat, dst, M, new cv.Size(w, h), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
     cv.imshow(this.canvas, dst);
-  }
-
-  private static ptDiff(pt0: Pt, pt1: Pt) {
-    return Math.sqrt(Math.pow(pt0[0] - pt1[0], 2) + Math.pow(pt0[1] - pt1[1], 2));
   }
 
   private img2ctxPt(imgPt: Pt): Pt {
