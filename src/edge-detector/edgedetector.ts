@@ -1,5 +1,5 @@
 import * as cv from "@techstark/opencv-js/";
-import Util, { Line } from "../util";
+import Util, { Corners, Line } from "../util";
 
 type ScoredLine = Line & { score: number };
 
@@ -27,7 +27,6 @@ export default class EdgeDetector {
     this.scoreParallelism(lines);
     this.scoreCenterDistance(lines, dstW, dstH);
     lines.sort((l0, l1) => l1.score - l0.score);
-    console.log(lines);
 
     const hLines = lines.filter((l) => Util.loopDiff(l.theta, 0, 0, Math.PI) < this.MAX_TILT);
     //.slice(0, 2);
@@ -35,7 +34,6 @@ export default class EdgeDetector {
     //.slice(0, 2);
     const intersections = Util.getIntersections(hLines, vLines, dstW, dstH).map((i) => Util.src2dstPt(i, dst, src));
 
-    debugCanvas = document.getElementById("the-other-canvas") as HTMLCanvasElement;
     if (debugCanvas) {
       const debugDst = src.clone();
 

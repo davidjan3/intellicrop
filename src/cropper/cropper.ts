@@ -15,6 +15,7 @@ export interface CropperTheme {
 export interface CropperOptions {
   useEdgeDetection?: boolean;
   theme?: CropperTheme;
+  debugCanvas?: HTMLCanvasElement;
 }
 
 export default class Cropper {
@@ -48,6 +49,7 @@ export default class Cropper {
     this.options = {
       useEdgeDetection: options.useEdgeDetection ?? defaultOptions.useEdgeDetection,
       theme: Object.assign(defaultOptions.theme, options?.theme),
+      debugCanvas: options.debugCanvas,
     };
     this.imgW = this.imgMat.cols;
     this.imgH = this.imgMat.rows;
@@ -56,7 +58,7 @@ export default class Cropper {
     canvas.height = this.imgH + this.options.theme.marginSize * 2;
 
     if (options.useEdgeDetection) {
-      const corners = EdgeDetector.detect(this.imgMat);
+      const corners = EdgeDetector.detect(this.imgMat, this.options.debugCanvas);
       if (corners) {
         this.corners = corners;
       }
