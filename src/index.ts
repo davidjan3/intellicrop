@@ -13,11 +13,11 @@ fileUploadEl?.addEventListener(
   },
   false
 );
-
+let cropper;
 srcImgEl.onload = () => {
-  const cropper = new Cropper(theCanvas, srcImgEl, {
+  cropper?.discard();
+  cropper = new Cropper(theCanvas, srcImgEl, {
     useEdgeDetection: true,
-    theme: { cornerRadius: 20, marginSize: 20 },
     debugCanvas: theOtherCanvas,
   });
   theButton.onclick = () => {

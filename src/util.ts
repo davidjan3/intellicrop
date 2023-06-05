@@ -78,4 +78,8 @@ export default class Util {
   public static getShortestDistance(line: Line, point: Pt): number {
     return Math.abs(point[0] * Math.cos(line.theta) + point[1] * Math.sin(line.theta) - line.rho);
   }
+
+  public static ptClipBounds(pt: Pt, bounds: Pt): Pt {
+    return [Math.min(Math.max(pt[0], 0), bounds[0]), Math.min(Math.max(pt[1], 0), bounds[1])];
+  }
 }
