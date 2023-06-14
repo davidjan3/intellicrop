@@ -49,7 +49,7 @@ export default class Cropper {
     };
 
     this.canvas = canvas;
-    this.ctx = canvas.getContext("2d")!;
+    this.ctx = canvas.getContext("2d");
     this.img = img;
     this.imgMat = cv.imread(img);
     this.options = {

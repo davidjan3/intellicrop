@@ -1,0 +1,32 @@
+{
+  "trailingComma": "es5",
+  "endOfLine": "lf",
+  "useTabs": false,
+  "tabWidth": 2,
+  "semi": true,
+  "singleQuote": false,
+  "jsxSingleQuote": false,
+  "bracketSpacing": true,
+  "bracketSameLine": false,
+  "embeddedLanguageFormatting": "off",
+  "singleAttributePerLine": false,
+  "arrowParens": "always",
+  "printWidth": 120,
+  "importOrder": [
+    "^[^(\\.)+/.*].*[^\\.(woff2|woff|ttf|eot|png|jpg|gif|svg|css|scss)]$",
+    "<THIRD_PARTY_MODULES>",
+    "^.*/util$",
+    "^.*/.*\\.(woff2|woff|ttf|eot|png|jpg|gif|svg)$",
+    "^.*/.*\\.(css|scss)$"
+  ],
+  "importOrderSortSpecifiers": true,
+  "importOrderCaseInsensitive": true,
+  "overrides": [
+    {
+      "files": "*.ts",
+      "options": {
+        "importOrderParserPlugins": ["typescript"]
+      }
+    }
+  ]
+}
