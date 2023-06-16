@@ -7,15 +7,14 @@ type Intersection = Scored & { pt: Pt; hLine: ScoredLine; vLine: ScoredLine };
 type ScoredCorners = Scored & { corners: Corners };
 
 export default class EdgeDetector {
-  private static readonly RHO_THRES = 0.25;
+  private static readonly RHO_THRES = 0.1;
   private static readonly THETA_THRES_DUPLICATE = 2.5 * (Math.PI / 180);
-  private static readonly THETA_THRES_CLUSTER = 5 * (Math.PI / 180);
   private static readonly MAX_TILT = 35 * (Math.PI / 180);
 
   static detect(src: cv.Mat, debugCanvas?: HTMLCanvasElement): Corners | undefined {
     const srcW = src.cols;
     const srcH = src.rows;
-    const srcCorners: Corners = { tl: [0, 0], tr: [srcW, 0], bl: [0, srcH], br: [srcW, srcH] };
+    const boundaryCorners: Corners = { tl: [0, 0], tr: [srcW, 0], bl: [0, srcH], br: [srcW, srcH] };
     const dst: cv.Mat = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
     const linesMat = new cv.Mat();
     const bounds = Util.areaToBounds(100000, src.cols / src.rows);
@@ -77,33 +76,16 @@ export default class EdgeDetector {
       cv.imshow(debugCanvas, debugDst);
     }
 
-    // // filter out low score intersections
-    // console.table(intersections);
-    // const scores = intersections.map((i) => i.score).slice(0, 4);
-    // const mean = Util.mean(scores);
-    // const stdDev = Util.stdDev(scores, mean);
-    // const minScore = mean - stdDev * 5;
-    // console.log(mean, stdDev);
-    // intersections = intersections.filter((i) => i.score >= minScore);
-
-    // cluster intersections by angle
     if (intersections.length > 4) {
-      const clusters = Util.cluster(
-        intersections,
-        (i0, i1) =>
-          Util.loopDiff(i0.hLine.theta, i1.hLine.theta, 0, Math.PI) < this.THETA_THRES_CLUSTER &&
-          Util.loopDiff(i0.vLine.theta, i1.vLine.theta, 0, Math.PI) < this.THETA_THRES_CLUSTER
-      ).filter((c) => c.length >= 4);
+      const cornersArr = this.getScoredCorners(intersections);
 
-      console.log("clusters", clusters);
-      if (clusters.length) {
-        const clusterCorners = clusters.map((c) => this.getScoredCorners(c, srcCorners));
-        console.log(clusterCorners);
-        return Util.maxValue(clusterCorners, (sc) => sc.score).corners;
+      console.log("cornersArr", cornersArr);
+      if (cornersArr.length) {
+        return Util.maxValue(cornersArr, (sc) => sc.score).corners;
       }
     }
 
-    return this.getScoredCorners(intersections, srcCorners).corners ?? undefined;
+    return this.getOutmostCorners(intersections, boundaryCorners).corners ?? undefined;
   }
 
   private static parseScoredLines(mat: cv.Mat, imgW: number) {
@@ -174,13 +156,13 @@ export default class EdgeDetector {
     return intersections;
   }
 
-  private static getScoredCorners(intersections: Intersection[], srcCorners: Corners) {
+  private static getOutmostCorners(intersections: Intersection[], boundaryCorners: Corners) {
     if (intersections.length < 4) return undefined;
 
     intersections = intersections.slice(); // copy to prevent mutating original
     const corners: ScoredCorners = {
       score: 0,
-      corners: srcCorners,
+      corners: boundaryCorners,
     };
 
     for (const key in corners.corners) {
@@ -191,6 +173,33 @@ export default class EdgeDetector {
       corners.corners[key] = intersection.pt;
       corners.score += intersection.score;
     }
+
+    return corners;
+  }
+
+  private static getScoredCorners(intersections: Intersection[]) {
+    const corners: ScoredCorners[] = [];
+
+    intersections.forEach((tl) => {
+      const trArr = intersections.filter((tr) => tl.hLine === tr.hLine && tl.pt[0] < tr.pt[0]);
+      const blArr = intersections.filter((bl) => tl.vLine === bl.vLine && tl.pt[1] < bl.pt[1]);
+      trArr.forEach((tr) => {
+        blArr.forEach((bl) => {
+          const br = intersections.find((br) => br.hLine === bl.hLine && br.vLine === tr.vLine);
+          if (br) {
+            corners.push({
+              corners: {
+                tl: tl.pt,
+                tr: tr.pt,
+                br: br.pt,
+                bl: bl.pt,
+              },
+              score: tl.score + tr.score + br.score + bl.score,
+            });
+          }
+        });
+      });
+    });
 
     return corners;
   }
