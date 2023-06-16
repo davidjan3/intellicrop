@@ -64,10 +64,7 @@ export default class Cropper {
     canvas.height = this.imgH;
 
     if (options.useEdgeDetection) {
-      const corners = EdgeDetector.detect(this.imgMat, this.options.debugCanvas);
-      if (corners) {
-        this.corners = corners;
-      }
+      this.corners = EdgeDetector.detect(this.imgMat, this.options.debugCanvas);
     }
     if (!this.corners) {
       this.corners = {

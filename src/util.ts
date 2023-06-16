@@ -22,18 +22,32 @@ export default class Util {
     return Math.min(difference, loopedDifference);
   }
 
-  public static maxIndex<T>(arr: T[], f?: (T) => number): number | undefined {
+  public static maxIndex<T>(arr: T[], score?: (v: T) => number): number | undefined {
     if (!arr.length) return undefined;
     let maxIndex = 0;
-    let maxVal = f ? f(arr[0]) : arr[0];
+    let maxScore = score ? score(arr[0]) : arr[0];
     for (let i = 1; i < arr.length; i++) {
-      const val = f ? f(arr[i]) : arr[i];
-      if (val > maxVal) {
+      const val = score ? score(arr[i]) : arr[i];
+      if (val > maxScore) {
         maxIndex = i;
-        maxVal = val;
+        maxScore = val;
       }
     }
     return maxIndex;
+  }
+
+  public static maxValue<T>(arr: T[], score?: (v: T) => number): T | undefined {
+    if (!arr.length) return undefined;
+    let maxValue = arr[0];
+    let maxScore = score ? score(arr[0]) : arr[0];
+    for (let i = 1; i < arr.length; i++) {
+      const val = score ? score(arr[i]) : arr[i];
+      if (val > maxScore) {
+        maxValue = arr[i];
+        maxScore = val;
+      }
+    }
+    return maxValue;
   }
 
   public static areaToBounds(area: number, aspectRatio: number): [number, number] {
@@ -50,36 +64,41 @@ export default class Util {
     return [srcPt[0] * (dst.cols / src.cols), srcPt[1] * (dst.rows / src.rows)];
   }
 
-  public static getIntersections(hLines: Line[], vLines: Line[], imgW: number, imgH: number): Pt[] {
-    const intersections: Pt[] = [];
-
-    for (const hLine of hLines) {
-      for (const vLine of vLines) {
-        const cosTheta0 = Math.cos(hLine.theta);
-        const sinTheta0 = Math.sin(hLine.theta);
-        const cosTheta1 = Math.cos(vLine.theta);
-        const sinTheta1 = Math.sin(vLine.theta);
-
-        const denominator = cosTheta0 * sinTheta1 - sinTheta0 * cosTheta1;
-
-        if (denominator !== 0) {
-          const x = (sinTheta1 * hLine.rho - sinTheta0 * vLine.rho) / denominator;
-          const y = (cosTheta0 * vLine.rho - cosTheta1 * hLine.rho) / denominator;
-          if (x > 0 && y > 0 && x < imgW && y < imgH) {
-            intersections.push([x, y]);
-          }
-        }
-      }
-    }
-
-    return intersections;
-  }
-
   public static getShortestDistance(line: Line, point: Pt): number {
     return Math.abs(point[0] * Math.cos(line.theta) + point[1] * Math.sin(line.theta) - line.rho);
   }
 
   public static ptClipBounds(pt: Pt, bounds: Pt): Pt {
     return [Math.min(Math.max(pt[0], 0), bounds[0]), Math.min(Math.max(pt[1], 0), bounds[1])];
+  }
+
+  public static mean(arr: number[]) {
+    return arr.reduce((a, b) => a + b) / arr.length;
+  }
+
+  public static stdDev(arr: number[], mean?: number) {
+    mean ??= this.mean(arr);
+    return Math.sqrt(arr.map((n) => Math.pow(n - mean, 2)).reduce((a, b) => a + b) / arr.length);
+  }
+
+  public static cluster<T>(arr: T[], matches: (v0: T, v1: T) => boolean) {
+    const clusters: T[][] = [];
+
+    arr.forEach((v0) => {
+      let assigned = false;
+
+      clusters.forEach((c) => {
+        if (c.some((v1) => matches(v0, v1))) {
+          assigned = true;
+          c.push(v0);
+        }
+      });
+
+      if (!assigned) {
+        clusters.push([v0]);
+      }
+    });
+
+    return clusters;
   }
 }
