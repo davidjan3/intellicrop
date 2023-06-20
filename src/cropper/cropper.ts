@@ -64,17 +64,14 @@ export default class Cropper {
     canvas.height = this.imgH;
 
     if (options.useEdgeDetection) {
-      const corners = EdgeDetector.detect(this.imgMat, this.options.debugCanvas);
-      if (corners) {
-        this.corners = corners;
-      }
+      this.corners = EdgeDetector.detect(this.imgMat, this.options.debugCanvas);
     }
     if (!this.corners) {
       this.corners = {
         tl: [0, 0],
         tr: [this.imgW, 0],
-        bl: [0, this.imgH],
         br: [this.imgW, this.imgH],
+        bl: [0, this.imgH],
       };
     }
 
@@ -139,7 +136,7 @@ export default class Cropper {
     this.ctx.fillStyle = this.options.theme.backgroundColor;
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.drawImage(this.img, ...this.img2ctxPt([0, 0]), this.imgW, this.imgH);
-    const cornerKeys = ["tl", "tr", "br", "bl"]; //Object.keys would give wrong order
+    const cornerKeys = Object.keys(this.corners);
 
     for (let i = 0; i < cornerKeys.length; i++) {
       const key = cornerKeys[i];
