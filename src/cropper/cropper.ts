@@ -190,6 +190,30 @@ export default class Cropper {
     window.removeEventListener("resize", this.onResize);
   }
 
+  public rotateLeft() {
+    this.rotate("left");
+  }
+
+  public rotateRight() {
+    this.rotate("right");
+  }
+
+  private rotate(dir: "left" | "right") {
+    const left = dir === "left";
+    const { tl, tr, br, bl } = this.corners;
+    this.corners = {
+      tl: left ? tr : bl,
+      tr: left ? br : tl,
+      br: left ? bl : tr,
+      bl: left ? tl : br,
+    };
+
+    this.ctx.translate(((left ? -1 : 1) * this.canvas.width) / 2, ((left ? -1 : 1) * this.canvas.height) / 2);
+    this.ctx.rotate(((left ? -1 : 1) * Math.PI) / 2);
+
+    this.onResize();
+  }
+
   private img2ctxPt(imgPt: Pt): Pt {
     return [
       imgPt[0] + this.options.theme.cornerRadius * this.remPx,

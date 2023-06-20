@@ -1,10 +1,12 @@
 import Cropper from "./cropper/cropper.js";
 
-const fileUploadInput = document.getElementById("file-input");
+const fileUploadInput = document.getElementById("file-input") as HTMLInputElement;
 const srcImage = document.getElementById("src-img") as HTMLImageElement;
 const cropperCanvas = document.getElementById("cropper-canvas") as HTMLCanvasElement;
 const debugCanvas = document.getElementById("debug-canvas") as HTMLCanvasElement;
-const applyButton = document.getElementById("apply-button");
+const applyButton = document.getElementById("apply-button") as HTMLButtonElement;
+const rotRightButton = document.getElementById("rotate-right-button") as HTMLButtonElement;
+const rotLeftButton = document.getElementById("rotate-left-button") as HTMLButtonElement;
 
 fileUploadInput?.addEventListener(
   "change",
@@ -31,4 +33,12 @@ applyButton.onclick = () => {
     debugCanvas.height = resultImage.height;
     debugCanvas.getContext("2d").drawImage(resultImage, 0, 0);
   };
+};
+
+rotRightButton.onclick = () => {
+  cropper.rotateRight();
+};
+
+rotLeftButton.onclick = () => {
+  cropper.rotateLeft();
 };
