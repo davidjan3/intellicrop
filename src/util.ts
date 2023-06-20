@@ -64,7 +64,7 @@ export default class Util {
     return [srcPt[0] * (dst.cols / src.cols), srcPt[1] * (dst.rows / src.rows)];
   }
 
-  public static getShortestDistance(line: Line, point: Pt): number {
+  public static shortestDistance(line: Line, point: Pt): number {
     return Math.abs(point[0] * Math.cos(line.theta) + point[1] * Math.sin(line.theta) - line.rho);
   }
 
@@ -81,24 +81,19 @@ export default class Util {
     return Math.sqrt(arr.map((n) => Math.pow(n - mean, 2)).reduce((a, b) => a + b) / arr.length);
   }
 
-  public static cluster<T>(arr: T[], matches: (v0: T, v1: T) => boolean) {
-    const clusters: T[][] = [];
+  public static area(corners: Corners) {
+    let area = 0;
 
-    arr.forEach((v0) => {
-      let assigned = false;
+    const cornerKeys = Object.keys(corners);
 
-      clusters.forEach((c) => {
-        if (c.some((v1) => matches(v0, v1))) {
-          assigned = true;
-          c.push(v0);
-        }
-      });
+    for (let i = 0; i < cornerKeys.length; i++) {
+      const key = cornerKeys[i];
+      const nextKey = cornerKeys[(i + 1) % cornerKeys.length];
+      const corner = corners[key];
+      const nextCorner = corners[nextKey];
+      area += corner[0] * nextCorner[1] - nextCorner[0] * corner[1];
+    }
 
-      if (!assigned) {
-        clusters.push([v0]);
-      }
-    });
-
-    return clusters;
+    return Math.abs(area) / 2;
   }
 }

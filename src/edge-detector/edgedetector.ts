@@ -14,7 +14,7 @@ export default class EdgeDetector {
   static detect(src: cv.Mat, debugCanvas?: HTMLCanvasElement): Corners | undefined {
     const srcW = src.cols;
     const srcH = src.rows;
-    const boundaryCorners: Corners = { tl: [0, 0], tr: [srcW, 0], bl: [0, srcH], br: [srcW, srcH] };
+    const boundaryCorners: Corners = { tl: [0, 0], tr: [srcW, 0], br: [srcW, srcH], bl: [0, srcH] };
     const dst: cv.Mat = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
     const linesMat = new cv.Mat();
     const bounds = Util.areaToBounds(100000, src.cols / src.rows);
@@ -27,7 +27,6 @@ export default class EdgeDetector {
     cv.HoughLines(dst, linesMat, 1, Math.PI / 360, 80, 0, 0, 0, Math.PI);
 
     const lines = this.parseScoredLines(linesMat, dst.cols);
-    this.scoreParallelism(lines);
     lines.sort((l0, l1) => l1.score - l0.score);
 
     const hLines = lines.filter((l) => Util.loopDiff(l.theta, Math.PI / 2, 0, Math.PI) < this.MAX_TILT);
@@ -45,7 +44,6 @@ export default class EdgeDetector {
         const line = lines[i];
         const rho = line.rho * (src.cols / dst.cols);
         const theta = line.theta;
-        console.log(rho, theta);
         let a = Math.cos(theta);
         let b = Math.sin(theta);
         let x0 = a * rho;
@@ -77,9 +75,9 @@ export default class EdgeDetector {
     }
 
     if (intersections.length > 4) {
-      const cornersArr = this.getScoredCorners(intersections);
+      const imgArea = Util.area(boundaryCorners);
+      const cornersArr = this.getScoredCorners(intersections, imgArea);
 
-      console.log("cornersArr", cornersArr);
       if (cornersArr.length) {
         return Util.maxValue(cornersArr, (sc) => sc.score).corners;
       }
@@ -108,17 +106,6 @@ export default class EdgeDetector {
     return lines;
   }
 
-  private static scoreParallelism(lines: ScoredLine[]) {
-    //todo: also value anti-parallelism => trapezoid, when looking at the paper from a slanted angle?
-    lines.forEach((l, i0) => {
-      l.score += lines.reduce((p, c, i1) => {
-        if (i0 === i1) return p;
-        const parralelism = Math.pow(1 - Util.loopDiff(l.theta, c.theta, 0, Math.PI) / Math.PI, 2);
-        return Math.max(p, parralelism);
-      }, 0);
-    });
-  }
-
   private static getScoredIntersections(
     hLines: ScoredLine[],
     vLines: ScoredLine[],
@@ -144,7 +131,7 @@ export default class EdgeDetector {
           if (x > 0 && y > 0 && x < imgW && y < imgH) {
             intersections.push({
               pt: [x, y],
-              score: hLine.score + vLine.score + angleScore,
+              score: angleScore,
               hLine: hLine,
               vLine: vLine,
             });
@@ -177,8 +164,8 @@ export default class EdgeDetector {
     return corners;
   }
 
-  private static getScoredCorners(intersections: Intersection[]) {
-    const corners: ScoredCorners[] = [];
+  private static getScoredCorners(intersections: Intersection[], imgArea: number) {
+    const cornersArr: ScoredCorners[] = [];
 
     intersections.forEach((tl) => {
       const trArr = intersections.filter((tr) => tl.hLine === tr.hLine && tl.pt[0] < tr.pt[0]);
@@ -187,20 +174,22 @@ export default class EdgeDetector {
         blArr.forEach((bl) => {
           const br = intersections.find((br) => br.hLine === bl.hLine && br.vLine === tr.vLine);
           if (br) {
-            corners.push({
-              corners: {
-                tl: tl.pt,
-                tr: tr.pt,
-                br: br.pt,
-                bl: bl.pt,
-              },
-              score: tl.score + tr.score + br.score + bl.score,
+            const corners: Corners = {
+              tl: tl.pt,
+              tr: tr.pt,
+              br: br.pt,
+              bl: bl.pt,
+            };
+            const areaScore = 0.1 * (Util.area(corners) / imgArea); //Counts roughly as much as 2° per corner
+            cornersArr.push({
+              corners: corners,
+              score: tl.score + tr.score + br.score + bl.score + areaScore,
             });
           }
         });
       });
     });
 
-    return corners;
+    return cornersArr;
   }
 }
