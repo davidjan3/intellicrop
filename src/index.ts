@@ -1,26 +1,34 @@
 import Cropper from "./cropper/cropper.js";
 
-const fileUploadEl = document.getElementById("file-upload");
-const srcImgEl = document.getElementById("src-image") as HTMLImageElement;
-const theCanvas = document.getElementById("the-canvas") as HTMLCanvasElement;
-const theOtherCanvas = document.getElementById("the-other-canvas") as HTMLCanvasElement;
-const theButton = document.getElementById("the-button");
+const fileUploadInput = document.getElementById("file-input");
+const srcImage = document.getElementById("src-img") as HTMLImageElement;
+const cropperCanvas = document.getElementById("cropper-canvas") as HTMLCanvasElement;
+const debugCanvas = document.getElementById("debug-canvas") as HTMLCanvasElement;
+const applyButton = document.getElementById("apply-button");
 
-fileUploadEl?.addEventListener(
+fileUploadInput?.addEventListener(
   "change",
   function (e) {
-    srcImgEl.src = URL.createObjectURL((e.target as HTMLInputElement).files[0]);
+    srcImage.src = URL.createObjectURL((e.target as HTMLInputElement).files[0]);
   },
   false
 );
-let cropper;
-srcImgEl.onload = () => {
-  cropper?.discard();
-  cropper = new Cropper(theCanvas, srcImgEl, {
+
+let cropper: Cropper;
+
+srcImage.onload = () => {
+  cropper = new Cropper(cropperCanvas, srcImage, {
     useEdgeDetection: true,
-    debugCanvas: theOtherCanvas,
+    debugCanvas: debugCanvas,
   });
-  theButton.onclick = () => {
-    cropper.getResult();
+};
+
+applyButton.onclick = () => {
+  const resultImage = cropper.getResult();
+  cropper.discard();
+  resultImage.onload = () => {
+    debugCanvas.width = resultImage.width;
+    debugCanvas.height = resultImage.height;
+    debugCanvas.getContext("2d").drawImage(resultImage, 0, 0);
   };
 };
