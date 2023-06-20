@@ -16,12 +16,14 @@ export interface CropperTheme {
 }
 
 export interface CropperOptions {
-  /** Use edge detection for presetting draggable corner positions */
+  /** Use edge detection for placing draggable corners */
   useEdgeDetection?: boolean;
   /** Theme to be used for Cropper UI */
   theme?: CropperTheme;
   /** Canvas element to show edge detection results */
   debugCanvas?: HTMLCanvasElement;
+  /** Initial placement draggable corners (ignored when using edge detection) */
+  corners?: Corners;
 }
 
 export default class Cropper {
@@ -67,7 +69,7 @@ export default class Cropper {
       this.corners = EdgeDetector.detect(this.imgMat, this.options.debugCanvas);
     }
     if (!this.corners) {
-      this.corners = {
+      this.corners = this.options.corners ?? {
         tl: [0, 0],
         tr: [this.imgW, 0],
         br: [this.imgW, this.imgH],
@@ -162,7 +164,7 @@ export default class Cropper {
     }
   }
 
-  public getResult() {
+  public getResult(type?: string, quality?: number) {
     let dst = new cv.Mat();
     let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
       ...this.corners.tl,
@@ -175,7 +177,13 @@ export default class Cropper {
     let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, 0, h, w, h]);
     let M = cv.getPerspectiveTransform(srcTri, dstTri);
     cv.warpPerspective(this.imgMat, dst, M, new cv.Size(w, h), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
-    cv.imshow(this.canvas, dst);
+
+    // Convert to image
+    const image = new Image();
+    const dstCanvas = document.createElement("canvas");
+    cv.imshow(dstCanvas, dst);
+    image.src = dstCanvas.toDataURL(type, quality);
+    return image;
   }
 
   public discard() {
