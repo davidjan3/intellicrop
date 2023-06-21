@@ -32,10 +32,11 @@ export default class Cropper {
   private readonly img: HTMLImageElement;
   private readonly imgMat: cv.Mat;
   private readonly options: CropperOptions;
-  private readonly imgW: number;
-  private readonly imgH: number;
+  private imgW: number;
+  private imgH: number;
   private corners: Corners;
   private remPx: number;
+  private rotationQuarters = 0;
   private onResize = () => this.adjustDimensions();
 
   constructor(canvas: HTMLCanvasElement, img: HTMLImageElement, options?: CropperOptions) {
@@ -62,8 +63,8 @@ export default class Cropper {
     this.imgW = this.imgMat.cols;
     this.imgH = this.imgMat.rows;
 
-    canvas.width = this.imgW;
-    canvas.height = this.imgH;
+    this.canvas.width = this.imgW;
+    this.canvas.height = this.imgH;
 
     if (options.useEdgeDetection) {
       this.corners = EdgeDetector.detect(this.imgMat, this.options.debugCanvas);
@@ -137,7 +138,18 @@ export default class Cropper {
   private render() {
     this.ctx.fillStyle = this.options.theme.backgroundColor;
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.drawImage(this.img, ...this.img2ctxPt([0, 0]), this.imgW, this.imgH);
+
+    if (this.rotationQuarters) {
+      this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
+      this.ctx.rotate(this.rotationQuarters * (Math.PI / 2));
+      if (this.rotationQuarters % 2 == 0) {
+        this.ctx.translate(-this.canvas.width / 2, -this.canvas.height / 2);
+      } else {
+        this.ctx.translate(-this.canvas.height / 2, -this.canvas.width / 2);
+      }
+    }
+
+    this.ctx.drawImage(this.img, ...this.img2ctxPt([0, 0]), this.imgMat.cols, this.imgMat.rows);
     const cornerKeys = Object.keys(this.corners);
 
     for (let i = 0; i < cornerKeys.length; i++) {
@@ -161,6 +173,10 @@ export default class Cropper {
       this.ctx.fillStyle = this.options.theme.cornerColor;
       this.ctx.arc(...cornerPt, this.options.theme.cornerRadius * this.remPx, 0, 2 * Math.PI);
       this.ctx.fill();
+    }
+
+    if (this.rotationQuarters) {
+      this.ctx.restore();
     }
   }
 
@@ -208,10 +224,15 @@ export default class Cropper {
       bl: left ? tl : br,
     };
 
-    this.ctx.translate(((left ? -1 : 1) * this.canvas.width) / 2, ((left ? -1 : 1) * this.canvas.height) / 2);
-    this.ctx.rotate(((left ? -1 : 1) * Math.PI) / 2);
+    this.rotationQuarters = (this.rotationQuarters + (left ? -1 : 1)) % 4;
 
-    this.onResize();
+    this.imgW = this.rotationQuarters % 2 == 0 ? this.imgMat.cols : this.imgMat.rows;
+    this.imgH = this.rotationQuarters % 2 == 0 ? this.imgMat.rows : this.imgMat.cols;
+
+    this.canvas.width = this.imgW;
+    this.canvas.height = this.imgH;
+
+    this.adjustDimensions();
   }
 
   private img2ctxPt(imgPt: Pt): Pt {
