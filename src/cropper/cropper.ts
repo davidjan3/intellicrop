@@ -88,10 +88,8 @@ export default class Cropper {
     const mouseMoveHandler = (event) => {
       event.preventDefault();
       if (draggingCorner) {
-        this.corners[draggingCorner] = Util.ptClipBounds(this.cl2imgPt([event.clientX, event.clientY]), [
-          this.imgW,
-          this.imgH,
-        ]);
+        const bounds: Pt = this.rotationQuarters % 2 == 0 ? [this.imgW, this.imgH] : [this.imgH, this.imgW];
+        this.corners[draggingCorner] = Util.ptClipBounds(this.cl2imgPt([event.clientX, event.clientY]), bounds);
         this.render();
       }
     };
@@ -140,6 +138,7 @@ export default class Cropper {
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
     if (this.rotationQuarters) {
+      this.ctx.save();
       this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
       this.ctx.rotate(this.rotationQuarters * (Math.PI / 2));
       if (this.rotationQuarters % 2 == 0) {
@@ -148,8 +147,17 @@ export default class Cropper {
         this.ctx.translate(-this.canvas.height / 2, -this.canvas.width / 2);
       }
     }
+    this.ctx.drawImage(
+      this.img,
+      this.options.theme.cornerRadius * this.remPx,
+      this.options.theme.cornerRadius * this.remPx,
+      this.imgMat.cols,
+      this.imgMat.rows
+    );
+    if (this.rotationQuarters) {
+      this.ctx.restore();
+    }
 
-    this.ctx.drawImage(this.img, ...this.img2ctxPt([0, 0]), this.imgMat.cols, this.imgMat.rows);
     const cornerKeys = Object.keys(this.corners);
 
     for (let i = 0; i < cornerKeys.length; i++) {
@@ -173,10 +181,6 @@ export default class Cropper {
       this.ctx.fillStyle = this.options.theme.cornerColor;
       this.ctx.arc(...cornerPt, this.options.theme.cornerRadius * this.remPx, 0, 2 * Math.PI);
       this.ctx.fill();
-    }
-
-    if (this.rotationQuarters) {
-      this.ctx.restore();
     }
   }
 
@@ -224,7 +228,7 @@ export default class Cropper {
       bl: left ? tl : br,
     };
 
-    this.rotationQuarters = (this.rotationQuarters + (left ? -1 : 1)) % 4;
+    this.rotationQuarters = (4 + this.rotationQuarters + (left ? -1 : 1)) % 4;
 
     this.imgW = this.rotationQuarters % 2 == 0 ? this.imgMat.cols : this.imgMat.rows;
     this.imgH = this.rotationQuarters % 2 == 0 ? this.imgMat.rows : this.imgMat.cols;
@@ -236,17 +240,31 @@ export default class Cropper {
   }
 
   private img2ctxPt(imgPt: Pt): Pt {
-    return [
-      imgPt[0] + this.options.theme.cornerRadius * this.remPx,
-      imgPt[1] + this.options.theme.cornerRadius * this.remPx,
-    ];
+    const cr = this.options.theme.cornerRadius;
+
+    if (this.rotationQuarters === 0) {
+      return [imgPt[0] + cr * this.remPx, imgPt[1] + cr * this.remPx];
+    } else if (this.rotationQuarters === 1) {
+      return [this.imgW - imgPt[1] + cr * this.remPx, imgPt[0] + cr * this.remPx];
+    } else if (this.rotationQuarters === 2) {
+      return [this.imgW - imgPt[0] + cr * this.remPx, this.imgH - imgPt[1] + cr * this.remPx];
+    } else if (this.rotationQuarters === 3) {
+      return [imgPt[1] + cr * this.remPx, this.imgH - imgPt[0] + cr * this.remPx];
+    }
   }
 
   private ctx2imgPt(ctxPt: Pt): Pt {
-    return [
-      ctxPt[0] - this.options.theme.cornerRadius * this.remPx,
-      ctxPt[1] - this.options.theme.cornerRadius * this.remPx,
-    ];
+    const cr = this.options.theme.cornerRadius;
+
+    if (this.rotationQuarters === 0) {
+      return [ctxPt[0] - cr * this.remPx, ctxPt[1] - cr * this.remPx];
+    } else if (this.rotationQuarters === 1) {
+      return [ctxPt[1] - cr * this.remPx, this.imgW - ctxPt[0] + cr * this.remPx];
+    } else if (this.rotationQuarters === 2) {
+      return [this.imgW - ctxPt[0] + cr * this.remPx, this.imgH - ctxPt[1] + cr * this.remPx];
+    } else if (this.rotationQuarters === 3) {
+      return [this.imgH - ctxPt[1] + cr * this.remPx, ctxPt[0] - cr * this.remPx];
+    }
   }
 
   private cl2imgPt(clPt: Pt): Pt {
