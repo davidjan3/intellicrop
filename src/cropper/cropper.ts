@@ -32,10 +32,15 @@ export default class Cropper {
   private readonly img: HTMLImageElement;
   private readonly imgMat: cv.Mat;
   private readonly options: CropperOptions;
+  /** Current width of image as displayed on canvas (accounting for rotation) */
   private imgW: number;
+  /** Current height of image as displayed on canvas (accounting for rotation) */
   private imgH: number;
+  /** Current position of draggable corners relative to unrotated source image */
   private corners: Corners;
+  /** Amount of pixels per rem */
   private remPx: number;
+  /** Amount of clockwise 90° rotations */
   private rotationQuarters = 0;
   private onResize = () => this.adjustDimensions();
 
@@ -184,6 +189,7 @@ export default class Cropper {
     }
   }
 
+  /** Returns image cropped according to current position of draggable corners */
   public getResult(type?: string, quality?: number) {
     let dst = new cv.Mat();
     let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
@@ -206,6 +212,7 @@ export default class Cropper {
     return image;
   }
 
+  /** Discards event listeners */
   public discard() {
     window.removeEventListener("resize", this.onResize);
   }
@@ -239,6 +246,7 @@ export default class Cropper {
     this.adjustDimensions();
   }
 
+  /** Converts coordinates on unrotated source image to coordinates on ctx  */
   private img2ctxPt(imgPt: Pt): Pt {
     const cr = this.options.theme.cornerRadius;
 
@@ -253,6 +261,7 @@ export default class Cropper {
     }
   }
 
+  /** Converts coordinates on ctx to coordinates on unrotated source image */
   private ctx2imgPt(ctxPt: Pt): Pt {
     const cr = this.options.theme.cornerRadius;
 
@@ -267,6 +276,7 @@ export default class Cropper {
     }
   }
 
+  /** Converts cursor position on canvas to coordinates on unrotated source image */
   private cl2imgPt(clPt: Pt): Pt {
     const bounds = this.canvas.getBoundingClientRect();
     const sX = this.canvas.width / bounds.width;
