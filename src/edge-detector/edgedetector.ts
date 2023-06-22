@@ -16,65 +16,30 @@ export default class EdgeDetector {
     const boundaryCorners: Corners = { tl: [0, 0], tr: [srcW, 0], br: [srcW, srcH], bl: [0, srcH] };
     const dst: cv.Mat = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
     const linesMat = new cv.Mat();
-    const dstBounds = Util.areaToBounds(100000, src.cols / src.rows);
+    const dstBounds = Util.areaToBounds(500000, src.cols / src.rows);
     const dstW = dstBounds[0];
     const dstH = dstBounds[1];
+    const contours = new cv.MatVector();
+    const hierarchy = new cv.Mat();
 
     cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
     cv.resize(dst, dst, new cv.Size(...dstBounds));
     cv.Canny(dst, dst, 80, 160, 3, true);
-    cv.HoughLines(dst, linesMat, 1, Math.PI / 360, 80, 0, 0, 0, Math.PI);
-
-    const lines = this.parseLines(linesMat, dst.cols);
-
-    const hLines = lines.filter((l) => Util.loopDiff(l.theta, Math.PI / 2, 0, Math.PI) < this.MAX_TILT);
-    const vLines = lines.filter((l) => Util.loopDiff(l.theta, 0, 0, Math.PI) < this.MAX_TILT);
-
-    let intersections = this.getScoredIntersections(hLines, vLines, dstW, dstH);
-    intersections.forEach((i) => (i.pt = Util.src2dstPt(i.pt, dst, src)));
-
+    cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0);
+    cv.adaptiveThreshold(dst, dst, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 15, 0);
+    cv.erode(dst, dst, cv.Mat.ones(5, 5, cv.CV_8U));
+    cv.findContours(dst, contours, hierarchy, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE);
+    console.dir(contours);
     if (debugCanvas) {
-      const debugDst = src.clone();
+      const debugDst = dst.clone();
+      cv.cvtColor(debugDst, debugDst, cv.COLOR_GRAY2RGBA, 0);
 
-      // draw lines
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const rho = line.rho * (src.cols / dst.cols);
-        const theta = line.theta;
-        let a = Math.cos(theta);
-        let b = Math.sin(theta);
-        let x0 = a * rho;
-        let y0 = b * rho;
-        let startPoint = { x: x0 - 10000 * b, y: y0 + 10000 * a };
-        let endPoint = { x: x0 + 10000 * b, y: y0 - 10000 * a };
-        cv.line(debugDst, startPoint, endPoint, [255, 0, 127, 255], 4);
-      }
-
-      // draw intersections
-      for (let i = 0; i < intersections.length; i++) {
-        const intersection = intersections[i];
-        cv.circle(
-          debugDst,
-          new cv.Point(...intersection.pt),
-          20,
-          [255 - Math.pow(intersection.score, 8) * 255, Math.pow(intersection.score, 8) * 255, 127, 255],
-          4
-        );
-      }
+      cv.drawContours(debugDst, contours, -1, [255, 0, 0, 255], 1, cv.LINE_8, hierarchy, 100);
 
       cv.imshow(debugCanvas, debugDst);
     }
 
-    if (intersections.length > 4) {
-      const imgArea = Util.area(boundaryCorners);
-      const cornersArr = this.getScoredCorners(intersections, imgArea);
-
-      if (cornersArr.length) {
-        return Util.maxValue(cornersArr, (sc) => sc.score).corners;
-      }
-    }
-
-    return this.getOutmostCorners(intersections, boundaryCorners).corners ?? undefined;
+    return boundaryCorners;
   }
 
   private static parseLines(mat: cv.Mat, imgW: number) {

@@ -4,7 +4,7 @@
   "description": "Simple JavaScript solution to edge detection assisted image cropping",
   "scripts": {
     "dev": "parcel src/index.html",
-    "build": "parcel build src/index.html",
+    "build": "parcel build src/cropper/cropper.ts",
     "lint": "eslint src/**/*.{ts,tsx}",
     "prettier": "prettier --check ./src/**/*.{ts,tsx,css,scss,json,html}",
     "prettier-run": "prettier --write ./src/**/*.{ts,tsx,css,scss,json,html}",
