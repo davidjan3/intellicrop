@@ -46,6 +46,10 @@
     "@techstark/opencv-js": "^4.7.0-release.1",
     "@types/node": "^20.2.5"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/davidjan3/intellicrop"
+  },
   "targets": {
     "module": {
       "optimize": true
