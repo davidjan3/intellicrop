@@ -4,6 +4,7 @@ const fileUploadInput = document.getElementById("file-input") as HTMLInputElemen
 const srcImage = document.getElementById("src-img") as HTMLImageElement;
 const cropperCanvas = document.getElementById("cropper-canvas") as HTMLCanvasElement;
 const debugCanvas = document.getElementById("debug-canvas") as HTMLCanvasElement;
+const reloadButton = document.getElementById("reload-button") as HTMLButtonElement;
 const applyButton = document.getElementById("apply-button") as HTMLButtonElement;
 const rotRightButton = document.getElementById("rotate-right-button") as HTMLButtonElement;
 const rotLeftButton = document.getElementById("rotate-left-button") as HTMLButtonElement;
@@ -24,6 +25,19 @@ srcImage.onload = () => {
     useEdgeDetection: true,
     debugCanvas: debugCanvas,
   });
+};
+
+reloadButton.onclick = () => {
+  if (cropper) {
+    const corners = cropper.getCorners();
+    const rotations = cropper.getRotations();
+    cropper?.discard();
+    cropper = new Cropper(cropperCanvas, srcImage, {
+      corners: corners,
+      rotations: rotations,
+      debugCanvas: debugCanvas,
+    });
+  }
 };
 
 applyButton.onclick = () => {
