@@ -22,8 +22,10 @@ export interface CropperOptions {
   theme?: CropperTheme;
   /** Canvas element to show edge detection results */
   debugCanvas?: HTMLCanvasElement;
-  /** Initial placement draggable corners (ignored when using edge detection) */
+  /** Initial placement draggable corners (overrides useEdgeDetection) */
   corners?: Corners;
+  /** Initial amount of clockwise 90° rotations */
+  rotations?: number;
 }
 
 export default class Cropper {
@@ -41,7 +43,7 @@ export default class Cropper {
   /** Amount of pixels per rem */
   private remPx: number;
   /** Amount of clockwise 90° rotations */
-  private rotationQuarters = 0;
+  private rotations = 0;
   private onResize = () => this.adjustDimensions();
 
   constructor(canvas: HTMLCanvasElement, img: HTMLImageElement, options?: CropperOptions) {
@@ -61,16 +63,20 @@ export default class Cropper {
     this.img = img;
     this.imgMat = cv.imread(img);
     this.options = {
-      useEdgeDetection: options.useEdgeDetection ?? defaultOptions.useEdgeDetection,
+      useEdgeDetection: !options.corners && (options.useEdgeDetection ?? defaultOptions.useEdgeDetection),
       theme: Object.assign(defaultOptions.theme, options?.theme),
       debugCanvas: options.debugCanvas,
+      corners: options.corners,
+      rotations: options.rotations,
     };
-    this.imgW = this.imgMat.cols;
-    this.imgH = this.imgMat.rows;
 
+    if (options.rotations) {
+      this.rotations = (4 + options.rotations) % 4;
+    }
+    this.imgW = this.rotations % 2 == 0 ? this.imgMat.cols : this.imgMat.rows;
+    this.imgH = this.rotations % 2 == 0 ? this.imgMat.rows : this.imgMat.cols;
     this.canvas.width = this.imgW;
     this.canvas.height = this.imgH;
-
     if (options.useEdgeDetection) {
       this.corners = EdgeDetector.detect(this.imgMat, this.options.debugCanvas);
     }
@@ -90,22 +96,22 @@ export default class Cropper {
   private registerListeners() {
     let draggingCorner: string | undefined;
 
-    const mouseMoveHandler = (event) => {
+    const pointerMoveHandler = (event) => {
       event.preventDefault();
       if (draggingCorner) {
-        const bounds: Pt = this.rotationQuarters % 2 == 0 ? [this.imgW, this.imgH] : [this.imgH, this.imgW];
+        const bounds: Pt = this.rotations % 2 == 0 ? [this.imgW, this.imgH] : [this.imgH, this.imgW];
         this.corners[draggingCorner] = Util.ptClipBounds(this.cl2imgPt([event.clientX, event.clientY]), bounds);
         this.render();
       }
     };
 
-    const mouseUpHandler = () => {
+    const pointerUpHandler = () => {
       draggingCorner = undefined;
-      window.removeEventListener("mousemove", mouseMoveHandler);
-      window.removeEventListener("mouseup", mouseUpHandler);
+      window.removeEventListener("pointermove", pointerMoveHandler);
+      window.removeEventListener("pointerup", pointerUpHandler);
     };
 
-    this.canvas.addEventListener("mousedown", (event) => {
+    this.canvas.addEventListener("pointerdown", (event) => {
       const imgPt: Pt = this.cl2imgPt([event.clientX, event.clientY]);
       const r = this.options.theme.cornerRadius * this.remPx;
       for (const key in this.corners) {
@@ -122,8 +128,8 @@ export default class Cropper {
         }
       }
 
-      window.addEventListener("mousemove", mouseMoveHandler);
-      window.addEventListener("mouseup", mouseUpHandler);
+      window.addEventListener("pointermove", pointerMoveHandler);
+      window.addEventListener("pointerup", pointerUpHandler);
     });
 
     window.addEventListener("resize", this.onResize);
@@ -142,11 +148,11 @@ export default class Cropper {
     this.ctx.fillStyle = this.options.theme.backgroundColor;
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    if (this.rotationQuarters) {
+    if (this.rotations) {
       this.ctx.save();
       this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
-      this.ctx.rotate(this.rotationQuarters * (Math.PI / 2));
-      if (this.rotationQuarters % 2 == 0) {
+      this.ctx.rotate(this.rotations * (Math.PI / 2));
+      if (this.rotations % 2 == 0) {
         this.ctx.translate(-this.canvas.width / 2, -this.canvas.height / 2);
       } else {
         this.ctx.translate(-this.canvas.height / 2, -this.canvas.width / 2);
@@ -159,7 +165,7 @@ export default class Cropper {
       this.imgMat.cols,
       this.imgMat.rows
     );
-    if (this.rotationQuarters) {
+    if (this.rotations) {
       this.ctx.restore();
     }
 
@@ -235,10 +241,10 @@ export default class Cropper {
       bl: left ? tl : br,
     };
 
-    this.rotationQuarters = (4 + this.rotationQuarters + (left ? -1 : 1)) % 4;
+    this.rotations = (4 + this.rotations + (left ? -1 : 1)) % 4;
 
-    this.imgW = this.rotationQuarters % 2 == 0 ? this.imgMat.cols : this.imgMat.rows;
-    this.imgH = this.rotationQuarters % 2 == 0 ? this.imgMat.rows : this.imgMat.cols;
+    this.imgW = this.rotations % 2 == 0 ? this.imgMat.cols : this.imgMat.rows;
+    this.imgH = this.rotations % 2 == 0 ? this.imgMat.rows : this.imgMat.cols;
 
     this.canvas.width = this.imgW;
     this.canvas.height = this.imgH;
@@ -246,17 +252,31 @@ export default class Cropper {
     this.adjustDimensions();
   }
 
+  public getRotations() {
+    return this.rotations;
+  }
+
+  public getCorners() {
+    const { tl, tr, br, bl } = this.corners;
+    return {
+      tl: [tl[0], tl[1]],
+      tr: [tr[0], tr[1]],
+      br: [br[0], br[1]],
+      bl: [bl[0], bl[1]],
+    } as Corners;
+  }
+
   /** Converts coordinates on unrotated source image to coordinates on ctx  */
   private img2ctxPt(imgPt: Pt): Pt {
     const cr = this.options.theme.cornerRadius;
 
-    if (this.rotationQuarters === 0) {
+    if (this.rotations === 0) {
       return [imgPt[0] + cr * this.remPx, imgPt[1] + cr * this.remPx];
-    } else if (this.rotationQuarters === 1) {
+    } else if (this.rotations === 1) {
       return [this.imgW - imgPt[1] + cr * this.remPx, imgPt[0] + cr * this.remPx];
-    } else if (this.rotationQuarters === 2) {
+    } else if (this.rotations === 2) {
       return [this.imgW - imgPt[0] + cr * this.remPx, this.imgH - imgPt[1] + cr * this.remPx];
-    } else if (this.rotationQuarters === 3) {
+    } else if (this.rotations === 3) {
       return [imgPt[1] + cr * this.remPx, this.imgH - imgPt[0] + cr * this.remPx];
     }
   }
@@ -265,13 +285,13 @@ export default class Cropper {
   private ctx2imgPt(ctxPt: Pt): Pt {
     const cr = this.options.theme.cornerRadius;
 
-    if (this.rotationQuarters === 0) {
+    if (this.rotations === 0) {
       return [ctxPt[0] - cr * this.remPx, ctxPt[1] - cr * this.remPx];
-    } else if (this.rotationQuarters === 1) {
+    } else if (this.rotations === 1) {
       return [ctxPt[1] - cr * this.remPx, this.imgW - ctxPt[0] + cr * this.remPx];
-    } else if (this.rotationQuarters === 2) {
+    } else if (this.rotations === 2) {
       return [this.imgW - ctxPt[0] + cr * this.remPx, this.imgH - ctxPt[1] + cr * this.remPx];
-    } else if (this.rotationQuarters === 3) {
+    } else if (this.rotations === 3) {
       return [this.imgH - ctxPt[1] + cr * this.remPx, ctxPt[0] - cr * this.remPx];
     }
   }
