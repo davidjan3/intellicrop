@@ -19,6 +19,7 @@ fileUploadInput?.addEventListener(
 let cropper: Cropper;
 
 srcImage.onload = () => {
+  cropper?.discard();
   cropper = new Cropper(cropperCanvas, srcImage, {
     useEdgeDetection: true,
     debugCanvas: debugCanvas,
@@ -27,7 +28,6 @@ srcImage.onload = () => {
 
 applyButton.onclick = () => {
   const resultImage = cropper.getResult();
-  cropper.discard();
   resultImage.onload = () => {
     debugCanvas.width = resultImage.width;
     debugCanvas.height = resultImage.height;
