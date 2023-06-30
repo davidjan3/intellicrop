@@ -9,17 +9,20 @@ export default class EdgeDetector {
   private static readonly RHO_THRES = 0.05;
   private static readonly THETA_THRES = 4 * (Math.PI / 180);
   private static readonly MAX_TILT = 35 * (Math.PI / 180);
+  private static readonly PARSE_LINES_AMOUNT = 4;
 
   static detect(src: cv.Mat, debugCanvas?: HTMLCanvasElement): Corners | undefined {
     const srcW = src.cols;
     const srcH = src.rows;
     const boundaryCorners: Corners = { tl: [0, 0], tr: [srcW, 0], br: [srcW, srcH], bl: [0, srcH] };
-    const dst: cv.Mat = cv.Mat.zeros(src.rows, src.cols, cv.CV_8UC3);
-    const linesMat = new cv.Mat();
+    const dst: cv.Mat = cv.Mat.zeros(0, 0, cv.CV_8UC3);
     const dstBounds = Util.areaToBounds(500000, src.cols / src.rows);
     const dstW = dstBounds[0];
     const dstH = dstBounds[1];
+    const dstDiag = Math.sqrt(dstW * dstW + dstH * dstH);
     let debugDst = undefined;
+    const hLinesMat = new cv.Mat();
+    const vLinesMat = new cv.Mat();
 
     cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
     cv.resize(dst, dst, new cv.Size(...dstBounds));
@@ -28,12 +31,10 @@ export default class EdgeDetector {
     cv.Canny(dst, dst, 0, 160, 3, true);
     cv.dilate(dst, dst, cv.Mat.ones(5, 5, cv.CV_8U));
     if (debugCanvas) debugDst = dst.clone();
-    cv.HoughLines(dst, linesMat, 1, Math.PI / 90, 50, 0, 0, 0, Math.PI);
-
-    const lines = this.parseLines(linesMat, Math.sqrt(dst.cols * dst.cols + dst.rows * dst.rows));
-
-    const hLines = lines.filter((l) => Util.loopDiff(l.theta, Math.PI / 2, 0, Math.PI) < this.MAX_TILT).slice(0, 4);
-    const vLines = lines.filter((l) => Util.loopDiff(l.theta, 0, 0, Math.PI) < this.MAX_TILT).slice(0, 4);
+    cv.HoughLines(dst, hLinesMat, 4, Math.PI / 90, 50, 0, 0, Math.PI / 2 - this.MAX_TILT, Math.PI / 2 + this.MAX_TILT);
+    cv.HoughLines(dst, vLinesMat, 4, Math.PI / 90, 50, 0, 0, -this.MAX_TILT, this.MAX_TILT);
+    const hLines = this.parseLines(hLinesMat, dstDiag);
+    const vLines = this.parseLines(vLinesMat, dstDiag);
 
     let intersections = this.getScoredIntersections(hLines, vLines, dstW, dstH);
     intersections.forEach((i) => (i.pt = Util.src2dstPt(i.pt, dst, src)));
@@ -84,7 +85,7 @@ export default class EdgeDetector {
 
   private static parseLines(mat: cv.Mat, imgDiag: number) {
     let lines: Line[] = [];
-    for (let i = 0; i < mat.rows; i++) {
+    for (let i = 0; i < mat.rows && lines.length < this.PARSE_LINES_AMOUNT; i++) {
       let rho = mat.data32F[i * 2];
       let theta = mat.data32F[i * 2 + 1];
 
@@ -175,10 +176,12 @@ export default class EdgeDetector {
               bl: bl.pt,
             };
             const areaScore = Util.area(corners) / imgArea;
-            cornersArr.push({
-              corners: corners,
-              score: areaScore < 0.2 ? 0 : tl.score + tr.score + br.score + bl.score + areaScore,
-            });
+            if (areaScore > 0.2) {
+              cornersArr.push({
+                corners: corners,
+                score: tl.score + tr.score + br.score + bl.score + areaScore,
+              });
+            }
           }
         });
       });
