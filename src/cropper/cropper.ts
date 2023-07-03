@@ -41,7 +41,7 @@ export default class Cropper {
   /** Current height of image as displayed on canvas (accounting for rotation) */
   private imgH: number;
   /** Current position of draggable corners relative to unrotated source image */
-  private corners: Corners;
+  private corners: Corners | undefined;
   /** Amount of pixels per rem */
   private remPx: number;
   /** Amount of clockwise 90° rotations */
@@ -80,22 +80,26 @@ export default class Cropper {
     this.imgH = this.rotations % 2 == 0 ? this.imgMat.rows : this.imgMat.cols;
     this.canvas.width = this.imgW;
     this.canvas.height = this.imgH;
-    if (options.useEdgeDetection) {
-      if (this.options.debugLogs) console.time("edgedetection");
-      this.corners = EdgeDetector.detect(this.imgMat, this.options.debugCanvas);
-      if (this.options.debugLogs) console.timeEnd("edgedetection");
-    }
-    if (!this.corners) {
-      this.corners = this.options.corners ?? {
-        tl: [0, 0],
-        tr: [this.imgW, 0],
-        br: [this.imgW, this.imgH],
-        bl: [0, this.imgH],
-      };
-    }
-
-    this.registerListeners();
     this.adjustDimensions();
+
+    setTimeout(() => {
+      if (this.options.useEdgeDetection) {
+        if (this.options.debugLogs) console.time("edgedetection");
+        this.corners = EdgeDetector.detect(this.imgMat, this.options.debugCanvas);
+        if (this.options.debugLogs) console.timeEnd("edgedetection");
+      }
+      if (!this.corners) {
+        this.corners = this.options.corners ?? {
+          tl: [0, 0],
+          tr: [this.imgW, 0],
+          br: [this.imgW, this.imgH],
+          bl: [0, this.imgH],
+        };
+      }
+
+      this.registerListeners();
+      this.render();
+    }, 1);
   }
 
   private registerListeners() {
@@ -174,29 +178,33 @@ export default class Cropper {
       this.ctx.restore();
     }
 
-    const cornerKeys = Object.keys(this.corners);
+    if (this.corners) {
+      const cornerKeys = Object.keys(this.corners);
+      for (let i = 0; i < cornerKeys.length; i++) {
+        const key = cornerKeys[i];
+        const nextKey = cornerKeys[(i + 1) % cornerKeys.length];
+        const corner = this.corners[key];
+        const nextCorner = this.corners[nextKey];
+        const cornerPt = this.img2ctxPt([corner[0], corner[1]]);
+        const nextCornerPt = this.img2ctxPt([nextCorner[0], nextCorner[1]]);
 
-    for (let i = 0; i < cornerKeys.length; i++) {
-      const key = cornerKeys[i];
-      const nextKey = cornerKeys[(i + 1) % cornerKeys.length];
-      const corner = this.corners[key];
-      const nextCorner = this.corners[nextKey];
-      const cornerPt = this.img2ctxPt([corner[0], corner[1]]);
-      const nextCornerPt = this.img2ctxPt([nextCorner[0], nextCorner[1]]);
+        //Draw line to next corner
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = this.options.theme.lineColor;
+        this.ctx.lineWidth = this.options.theme.lineThickness * this.remPx;
+        this.ctx.moveTo(...cornerPt);
+        this.ctx.lineTo(...nextCornerPt);
+        this.ctx.stroke();
 
-      //Draw line to next corner
-      this.ctx.beginPath();
-      this.ctx.strokeStyle = this.options.theme.lineColor;
-      this.ctx.lineWidth = this.options.theme.lineThickness * this.remPx;
-      this.ctx.moveTo(...cornerPt);
-      this.ctx.lineTo(...nextCornerPt);
-      this.ctx.stroke();
-
-      //Draw corner
-      this.ctx.beginPath();
-      this.ctx.fillStyle = this.options.theme.cornerColor;
-      this.ctx.arc(...cornerPt, this.options.theme.cornerRadius * this.remPx, 0, 2 * Math.PI);
-      this.ctx.fill();
+        //Draw corner
+        this.ctx.beginPath();
+        this.ctx.fillStyle = this.options.theme.cornerColor;
+        this.ctx.arc(...cornerPt, this.options.theme.cornerRadius * this.remPx, 0, 2 * Math.PI);
+        this.ctx.fill();
+      }
+    } else {
+      this.ctx.fillStyle = "rgba(0,0,0,0.5)";
+      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
   }
 
