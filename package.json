@@ -18,7 +18,8 @@
     "prettier": "prettier --check ./src/**/*.{ts,tsx,css,scss,json,html}",
     "prettier-run": "prettier --write ./src/**/*.{ts,tsx,css,scss,json,html}",
     "test": "jest --coverage",
-    "clean": "rm -rf .parcel-cache && rm -rf dist"
+    "clean": "rm -rf .parcel-cache && rm -rf dist",
+    "prepublishOnly": "npm run build"
   },
   "devDependencies": {
     "@parcel/packager-ts": "^2.9.1",
@@ -42,10 +43,7 @@
   ],
   "dependencies": {
     "@techstark/opencv-js": "^4.7.0-release.1",
-    "@types/node": "^20.2.5",
-    "crypto-browserify": "^3.12.0",
-    "path-browserify": "^1.0.1",
-    "stream-browserify": "^3.0.0"
+    "@types/node": "^20.2.5"
   },
   "repository": {
     "type": "git",
@@ -55,5 +53,11 @@
     "module": {
       "optimize": true
     }
+  },
+  "alias": {
+    "crypto": false,
+    "fs": false,
+    "path": false,
+    "stream": false
   }
 }
