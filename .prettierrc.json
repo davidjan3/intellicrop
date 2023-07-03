@@ -15,7 +15,6 @@
   "importOrder": [
     "^[^(\\.)+/.*].*[^\\.(woff2|woff|ttf|eot|png|jpg|gif|svg|css|scss)]$",
     "<THIRD_PARTY_MODULES>",
-    "^.*/util$",
     "^.*/.*\\.(woff2|woff|ttf|eot|png|jpg|gif|svg)$",
     "^.*/.*\\.(css|scss)$"
   ],
