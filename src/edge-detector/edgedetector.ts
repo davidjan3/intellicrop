@@ -9,14 +9,14 @@ export default class EdgeDetector {
   private static readonly RHO_THRES = 0.05;
   private static readonly THETA_THRES = 4 * (Math.PI / 180);
   private static readonly MAX_TILT = 35 * (Math.PI / 180);
-  private static readonly PARSE_LINES_AMOUNT = 4;
+  private static readonly PARSE_LINES_AMOUNT = 8;
 
   static detect(src: cv.Mat, debugCanvas?: HTMLCanvasElement): Corners | undefined {
     const srcW = src.cols;
     const srcH = src.rows;
     const boundaryCorners: Corners = { tl: [0, 0], tr: [srcW, 0], br: [srcW, srcH], bl: [0, srcH] };
     const dst: cv.Mat = cv.Mat.zeros(0, 0, cv.CV_8UC3);
-    const dstBounds = Util.areaToBounds(500000, src.cols / src.rows);
+    const dstBounds = Util.areaToBounds(100000, src.cols / src.rows);
     const dstW = dstBounds[0];
     const dstH = dstBounds[1];
     const dstDiag = Math.sqrt(dstW * dstW + dstH * dstH);
@@ -26,13 +26,13 @@ export default class EdgeDetector {
 
     cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
     cv.resize(dst, dst, new cv.Size(...dstBounds));
-    cv.adaptiveThreshold(dst, dst, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 15, 0);
+    cv.adaptiveThreshold(dst, dst, 255, cv.CALIB_CB_ADAPTIVE_THRESH, cv.THRESH_BINARY, 15, 0);
     cv.erode(dst, dst, cv.Mat.ones(5, 5, cv.CV_8U));
     cv.Canny(dst, dst, 0, 160, 3, true);
-    cv.dilate(dst, dst, cv.Mat.ones(5, 5, cv.CV_8U));
+    cv.dilate(dst, dst, cv.Mat.ones(4, 4, cv.CV_8U));
     if (debugCanvas) debugDst = dst.clone();
-    cv.HoughLines(dst, hLinesMat, 4, Math.PI / 90, 50, 0, 0, Math.PI / 2 - this.MAX_TILT, Math.PI / 2 + this.MAX_TILT);
-    cv.HoughLines(dst, vLinesMat, 4, Math.PI / 90, 50, 0, 0, -this.MAX_TILT, this.MAX_TILT);
+    cv.HoughLines(dst, hLinesMat, 2, Math.PI / 180, 50, 0, 0, Math.PI / 2 - this.MAX_TILT, Math.PI / 2 + this.MAX_TILT);
+    cv.HoughLines(dst, vLinesMat, 2, Math.PI / 180, 50, 0, 0, -this.MAX_TILT, this.MAX_TILT);
     const hLines = this.parseLines(hLinesMat, dstDiag);
     const vLines = this.parseLines(vLinesMat, dstDiag);
 

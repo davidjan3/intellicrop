@@ -24,6 +24,7 @@ srcImage.onload = () => {
   cropper = new Cropper(cropperCanvas, srcImage, {
     useEdgeDetection: true,
     debugCanvas: debugCanvas,
+    debugLogs: true,
   });
 };
 

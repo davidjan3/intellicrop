@@ -22,6 +22,8 @@ export interface CropperOptions {
   theme?: CropperTheme;
   /** Canvas element to show edge detection results */
   debugCanvas?: HTMLCanvasElement;
+  /** Log debug information in console */
+  debugLogs?: boolean;
   /** Initial placement draggable corners (overrides useEdgeDetection) */
   corners?: Corners;
   /** Initial amount of clockwise 90° rotations */
@@ -66,11 +68,12 @@ export default class Cropper {
       useEdgeDetection: !options.corners && (options.useEdgeDetection ?? defaultOptions.useEdgeDetection),
       theme: Object.assign(defaultOptions.theme, options?.theme),
       debugCanvas: options.debugCanvas,
+      debugLogs: options.debugLogs,
       corners: options.corners,
       rotations: options.rotations,
     };
 
-    if (options.rotations) {
+    if (this.options.rotations) {
       this.rotations = (4 + options.rotations) % 4;
     }
     this.imgW = this.rotations % 2 == 0 ? this.imgMat.cols : this.imgMat.rows;
@@ -78,7 +81,9 @@ export default class Cropper {
     this.canvas.width = this.imgW;
     this.canvas.height = this.imgH;
     if (options.useEdgeDetection) {
+      if (this.options.debugLogs) console.time("edgedetection");
       this.corners = EdgeDetector.detect(this.imgMat, this.options.debugCanvas);
+      if (this.options.debugLogs) console.timeEnd("edgedetection");
     }
     if (!this.corners) {
       this.corners = this.options.corners ?? {
