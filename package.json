@@ -1,6 +1,6 @@
 {
   "name": "intellicrop",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Simple JavaScript solution to edge detection assisted image cropping",
   "keywords": [
     "typescript",
@@ -8,7 +8,7 @@
     "edge-detection"
   ],
   "author": "davidjan3",
-  "license": "ISC",
+  "license": "WTFPL",
   "module": "dist/intellicrop.js",
   "types": "dist/intellicrop.d.ts",
   "scripts": {
