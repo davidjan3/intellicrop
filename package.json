@@ -1,7 +1,7 @@
 {
   "name": "intellicrop",
-  "version": "0.2.0",
-  "description": "Simple JavaScript solution to edge detection assisted image cropping",
+  "version": "0.2.1",
+  "description": "Simple JavaScript solution to edge detection assisted image cropping.",
   "keywords": [
     "typescript",
     "cropping",
