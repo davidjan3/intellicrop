@@ -9,10 +9,17 @@ export interface Corners {
   bl: Pt;
 }
 
-export type Line = {
+export interface EdgeCenters {
+  t: Pt;
+  r: Pt;
+  b: Pt;
+  l: Pt;
+}
+
+export interface Line {
   rho: number;
   theta: number;
-};
+}
 
 export default class Util {
   public static loopDiff(n0: number, n1: number, min: number, max: number): number {
@@ -95,5 +102,18 @@ export default class Util {
     }
 
     return Math.abs(area) / 2;
+  }
+
+  public static center(pt0: Pt, pt1: Pt): Pt {
+    return [pt0[0] + (pt1[0] - pt0[0]) / 2, pt0[1] + (pt1[1] - pt0[1]) / 2];
+  }
+
+  public static edgeCenters(corners: Corners): EdgeCenters {
+    return {
+      t: this.center(corners.tl, corners.tr),
+      r: this.center(corners.tr, corners.br),
+      b: this.center(corners.br, corners.bl),
+      l: this.center(corners.bl, corners.tl),
+    };
   }
 }
