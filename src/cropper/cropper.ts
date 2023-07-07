@@ -56,6 +56,10 @@ export default class Cropper {
   private remPx: number;
   /** Amount of clockwise 90° rotations */
   private rotations = 0;
+
+  private onPointerDown: (event: PointerEvent) => void;
+  private onPointerMove: (event: PointerEvent) => void;
+  private onPointerUp: (event: PointerEvent) => void;
   private onResize = () => this.adjustDimensions();
 
   constructor(canvas: HTMLCanvasElement, img: HTMLImageElement, options?: CropperOptions) {
@@ -117,25 +121,8 @@ export default class Cropper {
   }
 
   private registerListeners() {
-    let dragging: keyof Corners | keyof EdgeCenters | "m" | undefined;
-
-    const pointerMoveHandler = (event) => {
-      event.preventDefault();
-      if (dragging) {
-        const bounds: Pt = this.rotations % 2 == 0 ? [this.imgW, this.imgH] : [this.imgH, this.imgW];
-        this.corners[dragging] = Util.ptClipBounds(this.cl2imgPt([event.clientX, event.clientY]), bounds);
-        this.updateEdgeCenters();
-        this.render();
-      }
-    };
-
-    const pointerUpHandler = () => {
-      dragging = undefined;
-      window.removeEventListener("pointermove", pointerMoveHandler);
-      window.removeEventListener("pointerup", pointerUpHandler);
-    };
-
-    this.canvas.addEventListener("pointerdown", (event) => {
+    let dragged: keyof Corners | keyof EdgeCenters | "m" | undefined;
+    this.onPointerDown = (event) => {
       const imgPt: Pt = this.cl2imgPt([event.clientX, event.clientY]);
       const r = this.options.theme.cornerGrabberRadius * this.remPx;
       for (const key in this.corners) {
@@ -147,16 +134,41 @@ export default class Cropper {
         const y0 = corner[1] - r;
         const y1 = corner[1] + r;
         if (x >= x0 && x <= x1 && y >= y0 && y <= y1) {
-          dragging = key as keyof Corners;
+          dragged = key as keyof Corners;
           break;
         }
       }
 
-      window.addEventListener("pointermove", pointerMoveHandler);
-      window.addEventListener("pointerup", pointerUpHandler);
-    });
+      window.addEventListener("pointermove", this.onPointerMove);
+      window.addEventListener("pointerup", this.onPointerUp);
+    };
 
+    this.onPointerMove = (event) => {
+      event.preventDefault();
+      if (dragged) {
+        const bounds: Pt = this.rotations % 2 == 0 ? [this.imgW, this.imgH] : [this.imgH, this.imgW];
+        this.corners[dragged] = Util.ptClipBounds(this.cl2imgPt([event.clientX, event.clientY]), bounds);
+        this.updateEdgeCenters();
+        this.render();
+      }
+    };
+
+    this.onPointerUp = () => {
+      dragged = undefined;
+      window.removeEventListener("pointermove", this.onPointerMove);
+      window.removeEventListener("pointerup", this.onPointerUp);
+    };
+
+    this.canvas.addEventListener("pointerdown", this.onPointerDown);
     window.addEventListener("resize", this.onResize);
+  }
+
+  /** Discards event listeners */
+  public discard() {
+    window.removeEventListener("resize", this.onResize);
+    this.canvas.removeEventListener("pointerdown", this.onPointerDown);
+    window.removeEventListener("pointermove", this.onPointerMove);
+    window.removeEventListener("pointerup", this.onPointerUp);
   }
 
   private adjustDimensions() {
@@ -274,11 +286,6 @@ export default class Cropper {
     cv.imshow(dstCanvas, dst);
     image.src = dstCanvas.toDataURL(type, quality);
     return image;
-  }
-
-  /** Discards event listeners */
-  public discard() {
-    window.removeEventListener("resize", this.onResize);
   }
 
   public rotateLeft() {
