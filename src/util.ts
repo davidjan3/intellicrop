@@ -16,6 +16,10 @@ export interface EdgeCenters {
   l: Pt;
 }
 
+export interface ViewCenter {
+  c: Pt;
+}
+
 export interface Line {
   rho: number;
   theta: number;
@@ -71,6 +75,31 @@ export default class Util {
     return [srcPt[0] * (dst.cols / src.cols), srcPt[1] * (dst.rows / src.rows)];
   }
 
+  public static closestPoint(line: Line, pt: Pt): Pt {
+    const { rho, theta } = line;
+    const [x, y] = pt;
+
+    const cosTheta = Math.cos(theta);
+    const sinTheta = Math.sin(theta);
+
+    const lineX = rho * cosTheta;
+    const lineY = rho * sinTheta;
+
+    const u = (x - lineX) * cosTheta + (y - lineY) * sinTheta;
+
+    return [lineX + u * cosTheta, lineY + u * sinTheta];
+  }
+
+  public static lineThrough(pt0: Pt, pt1: Pt): Line {
+    const deltaX = pt0[0] - pt1[0];
+    const deltaY = pt0[1] - pt1[1];
+
+    return {
+      rho: Math.sqrt(deltaX ** 2 + deltaY ** 2),
+      theta: Math.atan2(deltaY, deltaX),
+    };
+  }
+
   public static shortestDistance(line: Line, point: Pt): number {
     return Math.abs(point[0] * Math.cos(line.theta) + point[1] * Math.sin(line.theta) - line.rho);
   }
@@ -104,16 +133,35 @@ export default class Util {
     return Math.abs(area) / 2;
   }
 
-  public static center(pt0: Pt, pt1: Pt): Pt {
+  public static lineCenter(pt0: Pt, pt1: Pt): Pt {
     return [pt0[0] + (pt1[0] - pt0[0]) / 2, pt0[1] + (pt1[1] - pt0[1]) / 2];
   }
 
   public static edgeCenters(corners: Corners): EdgeCenters {
     return {
-      t: this.center(corners.tl, corners.tr),
-      r: this.center(corners.tr, corners.br),
-      b: this.center(corners.br, corners.bl),
-      l: this.center(corners.bl, corners.tl),
+      t: this.lineCenter(corners.tl, corners.tr),
+      r: this.lineCenter(corners.tr, corners.br),
+      b: this.lineCenter(corners.br, corners.bl),
+      l: this.lineCenter(corners.bl, corners.tl),
     };
+  }
+
+  public static withinRadius(pt: Pt, targetPt: Pt, targetRadius: number) {
+    const x = pt[0];
+    const y = pt[1];
+    const x0 = targetPt[0] - targetRadius;
+    const x1 = targetPt[0] + targetRadius;
+    const y0 = targetPt[1] - targetRadius;
+    const y1 = targetPt[1] + targetRadius;
+    return x >= x0 && x <= x1 && y >= y0 && y <= y1;
+  }
+
+  public static cornerCenter(corners: Corners): Pt {
+    const { tl, tr, br, bl } = corners;
+
+    const centerX = (tl[0] + tr[0] + br[0] + bl[0]) / 4;
+    const centerY = (tl[1] + tr[1] + br[1] + bl[1]) / 4;
+
+    return [centerX, centerY];
   }
 }

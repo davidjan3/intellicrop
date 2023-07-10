@@ -1,6 +1,6 @@
 import * as cv from "@techstark/opencv-js/";
 import EdgeDetector from "../edge-detector/edgedetector";
-import Util, { Corners, EdgeCenters, Pt } from "../util";
+import Util, { Corners, EdgeCenters, Line, Pt, ViewCenter } from "../util";
 
 export interface CropperTheme {
   /** Radius of corner grabbers in rem */
@@ -52,6 +52,8 @@ export default class Cropper {
   private corners: Corners | undefined;
   /** Current position of edge grabbers relative to unrotated source image */
   private edgeCenters: EdgeCenters | undefined;
+  /** Current position of center grabber relative to unrotated source image */
+  private viewCenter: ViewCenter | undefined;
   /** Amount of pixels per rem */
   private remPx: number;
   /** Amount of clockwise 90° rotations */
@@ -114,29 +116,26 @@ export default class Cropper {
           bl: [0, this.imgH],
         };
       }
-      this.updateEdgeCenters();
+      this.updateCenters();
       this.registerListeners();
       this.render();
     }, 1);
   }
 
   private registerListeners() {
-    let dragged: keyof Corners | keyof EdgeCenters | "m" | undefined;
+    let dragged: keyof Corners | keyof EdgeCenters | keyof ViewCenter | undefined;
+    let dragLine: Line | undefined;
+    let dragLinePt: Pt | undefined;
+
     this.onPointerDown = (event) => {
-      const imgPt: Pt = this.cl2imgPt([event.clientX, event.clientY]);
-      const r = this.options.theme.cornerGrabberRadius * this.remPx;
-      for (const key in this.corners) {
-        const corner = this.corners[key];
-        const x = imgPt[0];
-        const y = imgPt[1];
-        const x0 = corner[0] - r;
-        const x1 = corner[0] + r;
-        const y0 = corner[1] - r;
-        const y1 = corner[1] + r;
-        if (x >= x0 && x <= x1 && y >= y0 && y <= y1) {
-          dragged = key as keyof Corners;
-          break;
+      dragged = this.getDragged([event.clientX, event.clientY]);
+      if (dragged in this.edgeCenters) {
+        if (dragged === "t" || dragged === "b") {
+          dragLine = Util.lineThrough(this.edgeCenters.t, this.edgeCenters.b);
+        } else {
+          dragLine = Util.lineThrough(this.edgeCenters.l, this.edgeCenters.r);
         }
+        dragLinePt = Util.closestPoint(dragLine, this.cl2imgPt([event.clientX, event.clientY]));
       }
 
       window.addEventListener("pointermove", this.onPointerMove);
@@ -147,8 +146,42 @@ export default class Cropper {
       event.preventDefault();
       if (dragged) {
         const bounds: Pt = this.rotations % 2 == 0 ? [this.imgW, this.imgH] : [this.imgH, this.imgW];
-        this.corners[dragged] = Util.ptClipBounds(this.cl2imgPt([event.clientX, event.clientY]), bounds);
-        this.updateEdgeCenters();
+        if (dragged in this.corners) {
+          this.corners[dragged] = Util.ptClipBounds(this.cl2imgPt([event.clientX, event.clientY]), bounds);
+        } else if (dragged in this.edgeCenters) {
+          const newPt = Util.closestPoint(dragLine, this.cl2imgPt([event.clientX, event.clientY]));
+          const deltaX = newPt[0] - dragLinePt[0];
+          const deltaY = newPt[1] - dragLinePt[1];
+          switch (dragged) {
+            case "t":
+              this.corners.tl[0] += deltaX;
+              this.corners.tl[1] += deltaY;
+              this.corners.tr[0] += deltaX;
+              this.corners.tr[1] += deltaY;
+              break;
+            case "r":
+              this.corners.tr[0] += deltaX;
+              this.corners.tr[1] += deltaY;
+              this.corners.br[0] += deltaX;
+              this.corners.br[1] += deltaY;
+              break;
+            case "b":
+              this.corners.br[0] += deltaX;
+              this.corners.br[1] += deltaY;
+              this.corners.bl[0] += deltaX;
+              this.corners.bl[1] += deltaY;
+              break;
+            case "l":
+              this.corners.bl[0] += deltaX;
+              this.corners.bl[1] += deltaY;
+              this.corners.tl[0] += deltaX;
+              this.corners.tl[1] += deltaY;
+          }
+          dragLinePt = newPt;
+        } else if (dragged in this.viewCenter) {
+          this.viewCenter.c = Util.ptClipBounds(this.cl2imgPt([event.clientX, event.clientY]), bounds);
+        }
+        this.updateCenters();
         this.render();
       }
     };
@@ -161,6 +194,34 @@ export default class Cropper {
 
     this.canvas.addEventListener("pointerdown", this.onPointerDown);
     window.addEventListener("resize", this.onResize);
+  }
+
+  private getDragged(clientPt: Pt): keyof Corners | keyof EdgeCenters | keyof ViewCenter | undefined {
+    const cursorPt: Pt = this.cl2imgPt(clientPt);
+    let radius: number;
+
+    radius = this.options.theme.cornerGrabberRadius * this.remPx;
+    for (const key in this.corners) {
+      const corner = this.corners[key];
+      if (Util.withinRadius(cursorPt, corner, radius)) {
+        return key as keyof Corners;
+      }
+    }
+
+    radius = this.options.theme.edgeGrabberRadius * this.remPx;
+    for (const key in this.edgeCenters) {
+      const corner = this.edgeCenters[key];
+      if (Util.withinRadius(cursorPt, corner, radius)) {
+        return key as keyof EdgeCenters;
+      }
+    }
+
+    radius = this.options.theme.cornerGrabberRadius * this.remPx;
+    if (Util.withinRadius(cursorPt, this.viewCenter.c, radius)) {
+      return "c";
+    }
+
+    return undefined;
   }
 
   /** Discards event listeners */
@@ -259,6 +320,13 @@ export default class Cropper {
         this.ctx.lineTo(...edgeCenter1Pt);
         this.ctx.stroke();
       }
+
+      //Draw center grabber
+      const viewCenterPt = this.img2ctxPt(this.viewCenter.c);
+      this.ctx.beginPath();
+      this.ctx.fillStyle = this.options.theme.cornerGrabberColor;
+      this.ctx.arc(...viewCenterPt, this.options.theme.cornerGrabberRadius * this.remPx, 0, 2 * Math.PI);
+      this.ctx.fill();
     } else {
       this.ctx.fillStyle = "rgba(0,0,0,0.5)";
       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -317,8 +385,9 @@ export default class Cropper {
     this.adjustDimensions();
   }
 
-  private updateEdgeCenters() {
+  private updateCenters() {
     this.edgeCenters = this.corners ? Util.edgeCenters(this.corners) : undefined;
+    this.viewCenter = this.corners ? { c: Util.cornerCenter(this.corners) } : undefined;
   }
 
   public getRotations() {
