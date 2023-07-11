@@ -71,6 +71,15 @@ export default class Util {
     return Math.sqrt(Math.pow(pt0[0] - pt1[0], 2) + Math.pow(pt0[1] - pt1[1], 2));
   }
 
+  public static ptRelativeDistance(pt: Pt, ptRangeStart: Pt, ptRangeEnd): number {
+    const range = this.ptDistance(ptRangeStart, ptRangeEnd);
+    const distanceToStart = this.ptDistance(pt, ptRangeStart);
+    const distanceToEnd = this.ptDistance(pt, ptRangeEnd);
+    const relativeDistance = range === 0 ? 0 : distanceToStart / range;
+    const negative = distanceToStart < distanceToEnd && distanceToEnd > range;
+    return (negative ? -1 : 1) * relativeDistance;
+  }
+
   public static src2dstPt(srcPt: Pt, src: cv.Mat, dst: cv.Mat): Pt {
     return [srcPt[0] * (dst.cols / src.cols), srcPt[1] * (dst.rows / src.rows)];
   }
@@ -101,8 +110,12 @@ export default class Util {
     return Math.abs(point[0] * Math.cos(line.theta) + point[1] * Math.sin(line.theta) - line.rho);
   }
 
+  public static ptWithinBounds(pt: Pt, bounds: Pt): boolean {
+    return pt[0] >= 0 && pt[0] < bounds[0] && pt[1] >= 0 && pt[1] < bounds[1];
+  }
+
   public static ptClipBounds(pt: Pt, bounds: Pt): Pt {
-    return [Math.min(Math.max(pt[0], 0), bounds[0]), Math.min(Math.max(pt[1], 0), bounds[1])];
+    return [Math.min(Math.max(pt[0], 0), bounds[0] - 1), Math.min(Math.max(pt[1], 0), bounds[1] - 1)];
   }
 
   public static mean(arr: number[]) {

@@ -125,16 +125,16 @@ export default class Cropper {
   private registerListeners() {
     let dragged: keyof Corners | keyof EdgeCenters | keyof ViewCenter | undefined;
     let dragLine: Line | undefined;
+    let edgeCenter: Pt | undefined;
     let oppositeEdgeCenter: Pt | undefined;
-    let dragLineLen: number | undefined;
     let oldCorners: Corners | undefined;
 
     this.onPointerDown = (event) => {
       dragged = this.getDragged([event.clientX, event.clientY]);
       if (dragged in this.edgeCenters) {
+        edgeCenter = this.edgeCenters[dragged];
         oppositeEdgeCenter = this.edgeCenters[Util.rotateKey(this.edgeCenters, dragged, 2)];
-        dragLine = Util.lineThrough(this.edgeCenters[dragged], oppositeEdgeCenter);
-        dragLineLen = Util.ptDistance(this.edgeCenters[dragged], oppositeEdgeCenter);
+        dragLine = Util.lineThrough(edgeCenter, oppositeEdgeCenter);
         oldCorners = Object.assign({}, this.corners);
       }
 
@@ -150,8 +150,7 @@ export default class Cropper {
           this.corners[dragged] = Util.ptClipBounds(this.cl2imgPt([event.clientX, event.clientY]), bounds);
         } else if (dragged in this.edgeCenters) {
           const newPt = Util.closestPoint(dragLine, this.cl2imgPt([event.clientX, event.clientY]));
-          const newLen = Util.ptDistance(newPt, oppositeEdgeCenter);
-          const newLenRelative = newLen / dragLineLen;
+          const newLenRelative = Util.ptRelativeDistance(newPt, oppositeEdgeCenter, edgeCenter);
           let moveCornerKeys: (keyof Corners)[] = [];
           let towardsCornerKeys: (keyof Corners)[] = [];
 
@@ -189,10 +188,10 @@ export default class Cropper {
             const towardsCornerPt = this.corners[towardsCornerKey];
             const deltaX = moveCornerPt[0] - towardsCornerPt[0];
             const deltaY = moveCornerPt[1] - towardsCornerPt[1];
-            this.corners[moveCornerKey] = [
-              towardsCornerPt[0] + deltaX * newLenRelative,
-              towardsCornerPt[1] + deltaY * newLenRelative,
-            ];
+            this.corners[moveCornerKey] = Util.ptClipBounds(
+              [towardsCornerPt[0] + deltaX * newLenRelative, towardsCornerPt[1] + deltaY * newLenRelative],
+              bounds
+            );
           }
         } else if (dragged in this.viewCenter) {
           this.viewCenter.c = Util.ptClipBounds(this.cl2imgPt([event.clientX, event.clientY]), bounds);
