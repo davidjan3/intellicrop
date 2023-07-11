@@ -1,5 +1,9 @@
 {
-    "prettier.configPath": ".prettierrc.json",
-    "editor.formatOnSave": true,
+  "prettier.configPath": ".prettierrc.json",
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "files.eol": "\n"
 }

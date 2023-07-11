@@ -149,7 +149,7 @@ export default class EdgeDetector {
 
     for (const key in corners.corners) {
       const intersection = intersections.splice(
-        Util.maxIndex(intersections, (i) => -Util.ptDiff(i.pt, corners.corners[key])),
+        Util.maxIndex(intersections, (i) => -Util.ptDistance(i.pt, corners.corners[key])),
         1
       )[0];
       corners.corners[key] = intersection.pt;

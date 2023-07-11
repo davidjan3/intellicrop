@@ -67,7 +67,7 @@ export default class Util {
     return [n0, n1];
   }
 
-  public static ptDiff(pt0: Pt, pt1: Pt) {
+  public static ptDistance(pt0: Pt, pt1: Pt) {
     return Math.sqrt(Math.pow(pt0[0] - pt1[0], 2) + Math.pow(pt0[1] - pt1[1], 2));
   }
 
@@ -76,27 +76,24 @@ export default class Util {
   }
 
   public static closestPoint(line: Line, pt: Pt): Pt {
-    const { rho, theta } = line;
-    const [x, y] = pt;
-
-    const cosTheta = Math.cos(theta);
-    const sinTheta = Math.sin(theta);
-
-    const lineX = rho * cosTheta;
-    const lineY = rho * sinTheta;
-
-    const u = (x - lineX) * cosTheta + (y - lineY) * sinTheta;
-
-    return [lineX + u * cosTheta, lineY + u * sinTheta];
+    const { theta, rho } = line;
+    const dx = -Math.sin(theta);
+    const dy = Math.cos(theta);
+    const ax = rho * dy;
+    const ay = -rho * dx;
+    const acx = pt[0] - ax;
+    const acy = pt[1] - ay;
+    const coeff = dx * acx + dy * acy;
+    return [ax + dx * coeff, ay + dy * coeff];
   }
 
   public static lineThrough(pt0: Pt, pt1: Pt): Line {
-    const deltaX = pt0[0] - pt1[0];
-    const deltaY = pt0[1] - pt1[1];
+    const deltaX = pt1[0] - pt0[0];
+    const deltaY = pt1[1] - pt0[1];
 
     return {
-      rho: Math.sqrt(deltaX ** 2 + deltaY ** 2),
-      theta: Math.atan2(deltaY, deltaX),
+      rho: -(deltaY * pt0[0] - deltaX * pt0[1]) / Math.sqrt(deltaX ** 2 + deltaY ** 2),
+      theta: Math.atan2(deltaY, deltaX) + Math.PI / 2,
     };
   }
 
@@ -163,5 +160,19 @@ export default class Util {
     const centerY = (tl[1] + tr[1] + br[1] + bl[1]) / 4;
 
     return [centerX, centerY];
+  }
+
+  public static rotateKey<T extends object>(o: T, key: string, rotation: number): keyof T {
+    const keys = Object.keys(o) as (keyof T)[];
+    const newKey = this.rotateVal(
+      keys.findIndex((v) => key === v),
+      rotation,
+      keys.length
+    );
+    return keys[newKey];
+  }
+
+  public static rotateVal(val: number, rotation: number, cutoff: number): number {
+    return (((val + rotation) % cutoff) + cutoff) % cutoff;
   }
 }

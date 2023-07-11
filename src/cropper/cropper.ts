@@ -94,7 +94,7 @@ export default class Cropper {
     };
 
     if (this.options.rotations) {
-      this.rotations = (4 + options.rotations) % 4;
+      this.rotations = Util.rotateVal(options.rotations, 0, 4);
     }
     this.imgW = this.rotations % 2 == 0 ? this.imgMat.cols : this.imgMat.rows;
     this.imgH = this.rotations % 2 == 0 ? this.imgMat.rows : this.imgMat.cols;
@@ -125,17 +125,17 @@ export default class Cropper {
   private registerListeners() {
     let dragged: keyof Corners | keyof EdgeCenters | keyof ViewCenter | undefined;
     let dragLine: Line | undefined;
-    let dragLinePt: Pt | undefined;
+    let oppositeEdgeCenter: Pt | undefined;
+    let dragLineLen: number | undefined;
+    let oldCorners: Corners | undefined;
 
     this.onPointerDown = (event) => {
       dragged = this.getDragged([event.clientX, event.clientY]);
       if (dragged in this.edgeCenters) {
-        if (dragged === "t" || dragged === "b") {
-          dragLine = Util.lineThrough(this.edgeCenters.t, this.edgeCenters.b);
-        } else {
-          dragLine = Util.lineThrough(this.edgeCenters.l, this.edgeCenters.r);
-        }
-        dragLinePt = Util.closestPoint(dragLine, this.cl2imgPt([event.clientX, event.clientY]));
+        oppositeEdgeCenter = this.edgeCenters[Util.rotateKey(this.edgeCenters, dragged, 2)];
+        dragLine = Util.lineThrough(this.edgeCenters[dragged], oppositeEdgeCenter);
+        dragLineLen = Util.ptDistance(this.edgeCenters[dragged], oppositeEdgeCenter);
+        oldCorners = Object.assign({}, this.corners);
       }
 
       window.addEventListener("pointermove", this.onPointerMove);
@@ -150,34 +150,50 @@ export default class Cropper {
           this.corners[dragged] = Util.ptClipBounds(this.cl2imgPt([event.clientX, event.clientY]), bounds);
         } else if (dragged in this.edgeCenters) {
           const newPt = Util.closestPoint(dragLine, this.cl2imgPt([event.clientX, event.clientY]));
-          const deltaX = newPt[0] - dragLinePt[0];
-          const deltaY = newPt[1] - dragLinePt[1];
+          const newLen = Util.ptDistance(newPt, oppositeEdgeCenter);
+          const newLenRelative = newLen / dragLineLen;
+          let moveCornerKeys: (keyof Corners)[] = [];
+          let towardsCornerKeys: (keyof Corners)[] = [];
+
           switch (dragged) {
             case "t":
-              this.corners.tl[0] += deltaX;
-              this.corners.tl[1] += deltaY;
-              this.corners.tr[0] += deltaX;
-              this.corners.tr[1] += deltaY;
+              moveCornerKeys[0] = "tl";
+              moveCornerKeys[1] = "tr";
+              towardsCornerKeys[0] = "bl";
+              towardsCornerKeys[1] = "br";
               break;
             case "r":
-              this.corners.tr[0] += deltaX;
-              this.corners.tr[1] += deltaY;
-              this.corners.br[0] += deltaX;
-              this.corners.br[1] += deltaY;
+              moveCornerKeys[0] = "tr";
+              moveCornerKeys[1] = "br";
+              towardsCornerKeys[0] = "tl";
+              towardsCornerKeys[1] = "bl";
               break;
             case "b":
-              this.corners.br[0] += deltaX;
-              this.corners.br[1] += deltaY;
-              this.corners.bl[0] += deltaX;
-              this.corners.bl[1] += deltaY;
+              moveCornerKeys[0] = "br";
+              moveCornerKeys[1] = "bl";
+              towardsCornerKeys[0] = "tr";
+              towardsCornerKeys[1] = "tl";
               break;
             case "l":
-              this.corners.bl[0] += deltaX;
-              this.corners.bl[1] += deltaY;
-              this.corners.tl[0] += deltaX;
-              this.corners.tl[1] += deltaY;
+              moveCornerKeys[0] = "bl";
+              moveCornerKeys[1] = "tl";
+              towardsCornerKeys[0] = "br";
+              towardsCornerKeys[1] = "tr";
+              break;
           }
-          dragLinePt = newPt;
+
+          for (let i = 0; i < moveCornerKeys.length; i++) {
+            const moveCornerKey = moveCornerKeys[i];
+            const towardsCornerKey = towardsCornerKeys[i];
+            const moveCornerPt = oldCorners[moveCornerKey];
+            const towardsCornerPt = this.corners[towardsCornerKey];
+            const deltaX = moveCornerPt[0] - towardsCornerPt[0];
+            const deltaY = moveCornerPt[1] - towardsCornerPt[1];
+            this.corners[moveCornerKey] = [
+              towardsCornerPt[0] + deltaX * newLenRelative,
+              towardsCornerPt[1] + deltaY * newLenRelative,
+            ];
+          }
         } else if (dragged in this.viewCenter) {
           this.viewCenter.c = Util.ptClipBounds(this.cl2imgPt([event.clientX, event.clientY]), bounds);
         }
@@ -342,8 +358,10 @@ export default class Cropper {
       ...this.corners.bl,
       ...this.corners.br,
     ]); //Make new size from srcTri?
-    const w = (Util.ptDiff(this.corners.tl, this.corners.tr) + Util.ptDiff(this.corners.bl, this.corners.br)) / 2;
-    const h = (Util.ptDiff(this.corners.tl, this.corners.bl) + Util.ptDiff(this.corners.tr, this.corners.br)) / 2;
+    const w =
+      (Util.ptDistance(this.corners.tl, this.corners.tr) + Util.ptDistance(this.corners.bl, this.corners.br)) / 2;
+    const h =
+      (Util.ptDistance(this.corners.tl, this.corners.bl) + Util.ptDistance(this.corners.tr, this.corners.br)) / 2;
     let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, 0, h, w, h]);
     let M = cv.getPerspectiveTransform(srcTri, dstTri);
     cv.warpPerspective(this.imgMat, dst, M, new cv.Size(w, h), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
@@ -374,7 +392,7 @@ export default class Cropper {
       bl: left ? tl : br,
     };
 
-    this.rotations = (4 + this.rotations + (left ? -1 : 1)) % 4;
+    this.rotations = Util.rotateVal(this.rotations, left ? -1 : 1, 4);
 
     this.imgW = this.rotations % 2 == 0 ? this.imgMat.cols : this.imgMat.rows;
     this.imgH = this.rotations % 2 == 0 ? this.imgMat.rows : this.imgMat.cols;
@@ -382,6 +400,7 @@ export default class Cropper {
     this.canvas.width = this.imgW;
     this.canvas.height = this.imgH;
 
+    this.updateCenters();
     this.adjustDimensions();
   }
 
