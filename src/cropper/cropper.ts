@@ -15,6 +15,10 @@ export interface CropperTheme {
   edgeGrabberRadius?: number;
   /** Color of edge grabbers */
   edgeGrabberColor?: string;
+  /** Radius of center grabber in rem */
+  centerGrabberRadius?: number;
+  /** Color of center grabber */
+  centerGrabberColor?: string;
   /** Line thickness of crosslines in rem */
   crossLineThickness?: number;
   /** Color of crosslines */
@@ -74,6 +78,8 @@ export default class Cropper {
         edgeColor: "white",
         edgeGrabberRadius: options?.theme?.cornerGrabberRadius ? options.theme.cornerGrabberRadius * 0.8 : 0.4,
         edgeGrabberColor: options?.theme?.cornerGrabberColor ?? "white",
+        centerGrabberRadius: options?.theme?.cornerGrabberRadius ? options.theme.cornerGrabberRadius * 1.2 : 0.6,
+        centerGrabberColor: options?.theme?.cornerGrabberColor ?? "rgba(255,255,255,0.5)",
         crossLineThickness: options?.theme?.edgeThickness ?? 0.2,
         crossLineColor: options?.theme?.edgeColor ?? "rgba(255,255,255,0.5)",
         backgroundColor: "black",
@@ -125,26 +131,35 @@ export default class Cropper {
   private registerListeners() {
     let dragged: keyof Corners | keyof EdgeCenters | keyof ViewCenter | undefined;
     let bounds: Pt | undefined;
-    let dragLine: Line | undefined;
-    let edgeCenter: Pt | undefined;
-    let oppositeEdgeCenter: Pt | undefined;
-    let moveCorners: { key: keyof Corners; towardsKey: keyof Corners; deltaX: number; deltaY: number }[] | undefined;
-    let scalarMin: number | undefined;
-    let scalarMax: number | undefined;
+    let edgeDragProps:
+      | {
+          dragLine: Line;
+          edgeCenter: Pt;
+          oppositeEdgeCenter: Pt;
+          moveCorners: { key: keyof Corners; towardsKey: keyof Corners; deltaX: number; deltaY: number }[];
+          scalarMin: number;
+          scalarMax: number;
+        }
+      | undefined;
+    let centerDragProps:
+      | {
+          cornerOffsets: Corners;
+        }
+      | undefined;
 
     this.onPointerDown = (event) => {
       dragged = this.getDragged([event.clientX, event.clientY]);
       bounds = this.rotations % 2 == 0 ? [this.imgW, this.imgH] : [this.imgH, this.imgW];
       if (dragged in this.edgeCenters) {
-        edgeCenter = this.edgeCenters[dragged];
-        oppositeEdgeCenter = this.edgeCenters[Util.rotateKey(this.edgeCenters, dragged, 2)];
-        dragLine = Util.lineThrough(edgeCenter, oppositeEdgeCenter);
+        const edgeCenter = this.edgeCenters[dragged];
+        const oppositeEdgeCenter = this.edgeCenters[Util.rotateKey(this.edgeCenters, dragged, 2)];
+        const dragLine = Util.lineThrough(edgeCenter, oppositeEdgeCenter);
 
-        let cornerKeys = Object.keys(this.corners) as (keyof Corners)[];
-        let edgeCenterKeys = Object.keys(this.edgeCenters) as (keyof EdgeCenters)[];
-        moveCorners = [];
-        scalarMin = -Infinity;
-        scalarMax = Infinity;
+        const cornerKeys = Object.keys(this.corners) as (keyof Corners)[];
+        const edgeCenterKeys = Object.keys(this.edgeCenters) as (keyof EdgeCenters)[];
+        const moveCorners = [];
+        let scalarMin = -Infinity;
+        let scalarMax = Infinity;
 
         for (let i = 0; i < 2; i++) {
           const edgeCenterKeyIndex = edgeCenterKeys.indexOf(dragged as keyof EdgeCenters);
@@ -170,6 +185,12 @@ export default class Cropper {
             deltaY: deltaY,
           };
         }
+
+        edgeDragProps = { dragLine, edgeCenter, oppositeEdgeCenter, moveCorners, scalarMin, scalarMax };
+      } else if (dragged in this.viewCenter) {
+        const cornerOffsets = Util.mapObj(this.corners, (c) => Util.ptDiff(this.viewCenter.c, c));
+
+        centerDragProps = { cornerOffsets };
       }
 
       window.addEventListener("pointermove", this.onPointerMove);
@@ -182,6 +203,8 @@ export default class Cropper {
         if (dragged in this.corners) {
           this.corners[dragged] = Util.ptClipBounds(this.cl2imgPt([event.clientX, event.clientY]), bounds);
         } else if (dragged in this.edgeCenters) {
+          const { dragLine, edgeCenter, oppositeEdgeCenter, moveCorners, scalarMin, scalarMax } = edgeDragProps;
+
           const newPt = Util.closestPoint(dragLine, this.cl2imgPt([event.clientX, event.clientY]));
           const newLenRelative = Math.min(
             Math.max(Util.ptRelativeDistance(newPt, oppositeEdgeCenter, edgeCenter), scalarMin),
@@ -196,7 +219,15 @@ export default class Cropper {
             ];
           }
         } else if (dragged in this.viewCenter) {
-          this.viewCenter.c = Util.ptClipBounds(this.cl2imgPt([event.clientX, event.clientY]), bounds);
+          const { cornerOffsets } = centerDragProps;
+
+          const viewCenter = Util.ptClipBoundsRect(this.cl2imgPt([event.clientX, event.clientY]), {
+            left: Math.max(-cornerOffsets.tl[0], -cornerOffsets.bl[0]),
+            right: Math.min(bounds[0] - cornerOffsets.tr[0], bounds[0] - cornerOffsets.br[0]),
+            top: Math.max(-cornerOffsets.tl[1], -cornerOffsets.tr[1]),
+            bottom: Math.min(bounds[1] - cornerOffsets.bl[1], bounds[1] - cornerOffsets.br[1]),
+          });
+          this.corners = Util.mapObj(cornerOffsets, (c) => [c[0] + viewCenter[0], c[1] + viewCenter[1]]);
         }
         this.updateCenters();
         this.render();
@@ -233,7 +264,7 @@ export default class Cropper {
       }
     }
 
-    radius = this.options.theme.cornerGrabberRadius * this.remPx;
+    radius = this.options.theme.centerGrabberRadius * this.remPx;
     if (Util.withinRadius(cursorPt, this.viewCenter.c, radius)) {
       return "c";
     }
@@ -339,11 +370,13 @@ export default class Cropper {
       }
 
       //Draw center grabber
-      const viewCenterPt = this.img2ctxPt(this.viewCenter.c);
-      this.ctx.beginPath();
-      this.ctx.fillStyle = this.options.theme.cornerGrabberColor;
-      this.ctx.arc(...viewCenterPt, this.options.theme.cornerGrabberRadius * this.remPx, 0, 2 * Math.PI);
-      this.ctx.fill();
+      if (this.options.theme.centerGrabberRadius) {
+        const viewCenterPt = this.img2ctxPt(this.viewCenter.c);
+        this.ctx.beginPath();
+        this.ctx.fillStyle = this.options.theme.centerGrabberColor;
+        this.ctx.arc(...viewCenterPt, this.options.theme.centerGrabberRadius * this.remPx, 0, 2 * Math.PI);
+        this.ctx.fill();
+      }
     } else {
       this.ctx.fillStyle = "rgba(0,0,0,0.5)";
       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);

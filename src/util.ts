@@ -67,6 +67,10 @@ export default class Util {
     return [n0, n1];
   }
 
+  public static ptDiff(pt0: Pt, pt1: Pt): Pt {
+    return [pt1[0] - pt0[0], pt1[1] - pt0[1]];
+  }
+
   public static ptDistance(pt0: Pt, pt1: Pt) {
     return Math.sqrt(Math.pow(pt0[0] - pt1[0], 2) + Math.pow(pt0[1] - pt1[1], 2));
   }
@@ -114,8 +118,12 @@ export default class Util {
     return pt[0] >= 0 && pt[0] < bounds[0] && pt[1] >= 0 && pt[1] < bounds[1];
   }
 
-  public static ptClipBounds(pt: Pt, bounds: Pt): Pt {
+  public static ptClipBounds(pt: Pt, bounds: [number, number]): Pt {
     return [Math.min(Math.max(pt[0], 0), bounds[0] - 1), Math.min(Math.max(pt[1], 0), bounds[1] - 1)];
+  }
+
+  public static ptClipBoundsRect(pt: Pt, bounds: { left: number; right: number; top: number; bottom: number }): Pt {
+    return [Math.min(Math.max(pt[0], bounds.left), bounds.right), Math.min(Math.max(pt[1], bounds.top), bounds.bottom)];
   }
 
   public static mean(arr: number[]) {
@@ -187,5 +195,12 @@ export default class Util {
 
   public static rotateVal(val: number, rotation: number, cutoff: number): number {
     return (((val + rotation) % cutoff) + cutoff) % cutoff;
+  }
+
+  public static mapObj<T extends object>(o: T, f: (v: T[keyof T], k: keyof T) => T[keyof T]): T {
+    return Object.keys(o).reduce((res, k) => {
+      res[k] = f(o[k], k as keyof T);
+      return res;
+    }, {}) as T;
   }
 }

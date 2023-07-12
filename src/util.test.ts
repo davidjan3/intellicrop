@@ -81,3 +81,19 @@ describe("Util.lineThrough", () => {
     }
   });
 });
+
+describe("Util.mapObj", () => {
+  it("should map an object", () => {
+    {
+      const obj = { a: 1, c: 3, b: 2 };
+      const mapped = Util.mapObj(obj, (v) => v * 2);
+      expect(JSON.stringify(mapped)).toEqual('{"a":2,"c":6,"b":4}');
+    }
+
+    {
+      const obj = { a: "1", b: "2", c: "3" };
+      const mapped = Util.mapObj(obj, (v, k) => v + k);
+      expect(JSON.stringify(mapped)).toEqual('{"a":"1a","b":"2b","c":"3c"}');
+    }
+  });
+});
