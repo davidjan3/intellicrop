@@ -124,18 +124,52 @@ export default class Cropper {
 
   private registerListeners() {
     let dragged: keyof Corners | keyof EdgeCenters | keyof ViewCenter | undefined;
+    let bounds: Pt | undefined;
     let dragLine: Line | undefined;
     let edgeCenter: Pt | undefined;
     let oppositeEdgeCenter: Pt | undefined;
-    let oldCorners: Corners | undefined;
+    let moveCorners: { key: keyof Corners; towardsKey: keyof Corners; deltaX: number; deltaY: number }[] | undefined;
+    let scalarMin: number | undefined;
+    let scalarMax: number | undefined;
 
     this.onPointerDown = (event) => {
       dragged = this.getDragged([event.clientX, event.clientY]);
+      bounds = this.rotations % 2 == 0 ? [this.imgW, this.imgH] : [this.imgH, this.imgW];
       if (dragged in this.edgeCenters) {
         edgeCenter = this.edgeCenters[dragged];
         oppositeEdgeCenter = this.edgeCenters[Util.rotateKey(this.edgeCenters, dragged, 2)];
         dragLine = Util.lineThrough(edgeCenter, oppositeEdgeCenter);
-        oldCorners = Object.assign({}, this.corners);
+
+        let cornerKeys = Object.keys(this.corners) as (keyof Corners)[];
+        let edgeCenterKeys = Object.keys(this.edgeCenters) as (keyof EdgeCenters)[];
+        moveCorners = [];
+        scalarMin = -Infinity;
+        scalarMax = Infinity;
+
+        for (let i = 0; i < 2; i++) {
+          const edgeCenterKeyIndex = edgeCenterKeys.indexOf(dragged as keyof EdgeCenters);
+          const moveCornerKey = cornerKeys[Util.rotateVal(edgeCenterKeyIndex, i, cornerKeys.length)];
+          const towardsCornerKey = cornerKeys[Util.rotateVal(edgeCenterKeyIndex, -i - 1, cornerKeys.length)];
+          const moveCornerPt = this.corners[moveCornerKey];
+          const towardsCornerPt = this.corners[towardsCornerKey];
+          const deltaX = moveCornerPt[0] - towardsCornerPt[0];
+          const deltaY = moveCornerPt[1] - towardsCornerPt[1];
+
+          let scalarLeft = -towardsCornerPt[0] / deltaX;
+          let scalarRight = (bounds[0] - towardsCornerPt[0]) / deltaX;
+          let scalarTop = -towardsCornerPt[1] / deltaY;
+          let scalarBottom = (bounds[1] - towardsCornerPt[1]) / deltaY;
+
+          scalarMin = Math.max(scalarMin, ...[scalarLeft, scalarRight, scalarTop, scalarBottom].filter((s) => s < 0));
+          scalarMax = Math.min(scalarMax, ...[scalarLeft, scalarRight, scalarTop, scalarBottom].filter((s) => s > 1));
+
+          moveCorners[i] = {
+            key: moveCornerKey,
+            towardsKey: towardsCornerKey,
+            deltaX: deltaX,
+            deltaY: deltaY,
+          };
+        }
       }
 
       window.addEventListener("pointermove", this.onPointerMove);
@@ -145,53 +179,21 @@ export default class Cropper {
     this.onPointerMove = (event) => {
       event.preventDefault();
       if (dragged) {
-        const bounds: Pt = this.rotations % 2 == 0 ? [this.imgW, this.imgH] : [this.imgH, this.imgW];
         if (dragged in this.corners) {
           this.corners[dragged] = Util.ptClipBounds(this.cl2imgPt([event.clientX, event.clientY]), bounds);
         } else if (dragged in this.edgeCenters) {
           const newPt = Util.closestPoint(dragLine, this.cl2imgPt([event.clientX, event.clientY]));
-          const newLenRelative = Util.ptRelativeDistance(newPt, oppositeEdgeCenter, edgeCenter);
-          let moveCornerKeys: (keyof Corners)[] = [];
-          let towardsCornerKeys: (keyof Corners)[] = [];
+          const newLenRelative = Math.min(
+            Math.max(Util.ptRelativeDistance(newPt, oppositeEdgeCenter, edgeCenter), scalarMin),
+            scalarMax
+          );
 
-          switch (dragged) {
-            case "t":
-              moveCornerKeys[0] = "tl";
-              moveCornerKeys[1] = "tr";
-              towardsCornerKeys[0] = "bl";
-              towardsCornerKeys[1] = "br";
-              break;
-            case "r":
-              moveCornerKeys[0] = "tr";
-              moveCornerKeys[1] = "br";
-              towardsCornerKeys[0] = "tl";
-              towardsCornerKeys[1] = "bl";
-              break;
-            case "b":
-              moveCornerKeys[0] = "br";
-              moveCornerKeys[1] = "bl";
-              towardsCornerKeys[0] = "tr";
-              towardsCornerKeys[1] = "tl";
-              break;
-            case "l":
-              moveCornerKeys[0] = "bl";
-              moveCornerKeys[1] = "tl";
-              towardsCornerKeys[0] = "br";
-              towardsCornerKeys[1] = "tr";
-              break;
-          }
-
-          for (let i = 0; i < moveCornerKeys.length; i++) {
-            const moveCornerKey = moveCornerKeys[i];
-            const towardsCornerKey = towardsCornerKeys[i];
-            const moveCornerPt = oldCorners[moveCornerKey];
-            const towardsCornerPt = this.corners[towardsCornerKey];
-            const deltaX = moveCornerPt[0] - towardsCornerPt[0];
-            const deltaY = moveCornerPt[1] - towardsCornerPt[1];
-            this.corners[moveCornerKey] = Util.ptClipBounds(
-              [towardsCornerPt[0] + deltaX * newLenRelative, towardsCornerPt[1] + deltaY * newLenRelative],
-              bounds
-            );
+          for (let moveCorner of moveCorners) {
+            const towardsCornerPt = this.corners[moveCorner.towardsKey];
+            this.corners[moveCorner.key] = [
+              towardsCornerPt[0] + moveCorner.deltaX * newLenRelative,
+              towardsCornerPt[1] + moveCorner.deltaY * newLenRelative,
+            ];
           }
         } else if (dragged in this.viewCenter) {
           this.viewCenter.c = Util.ptClipBounds(this.cl2imgPt([event.clientX, event.clientY]), bounds);
