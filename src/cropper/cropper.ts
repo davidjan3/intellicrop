@@ -143,7 +143,7 @@ export default class Cropper {
       | undefined;
     let centerDragProps:
       | {
-          cornersOffset: Corners;
+          cornerOffsets: Corners;
         }
       | undefined;
 
@@ -188,9 +188,9 @@ export default class Cropper {
 
         edgeDragProps = { dragLine, edgeCenter, oppositeEdgeCenter, moveCorners, scalarMin, scalarMax };
       } else if (dragged in this.viewCenter) {
-        const cornersFromViewCenter = Util.mapObj(this.corners, (c) => Util.ptDiff(this.viewCenter.c, c));
+        const cornerOffsets = Util.mapObj(this.corners, (c) => Util.ptDiff(this.viewCenter.c, c));
 
-        centerDragProps = { cornersOffset: cornersFromViewCenter };
+        centerDragProps = { cornerOffsets };
       }
 
       window.addEventListener("pointermove", this.onPointerMove);
@@ -219,15 +219,15 @@ export default class Cropper {
             ];
           }
         } else if (dragged in this.viewCenter) {
-          const { cornersOffset } = centerDragProps;
+          const { cornerOffsets } = centerDragProps;
 
           const viewCenter = Util.ptClipBoundsRect(this.cl2imgPt([event.clientX, event.clientY]), {
-            left: Math.max(-cornersOffset.tl[0], -cornersOffset.bl[0]),
-            right: Math.min(bounds[0] - cornersOffset.tr[0], bounds[0] - cornersOffset.br[0]),
-            top: Math.max(-cornersOffset.tl[1], -cornersOffset.tr[1]),
-            bottom: Math.min(bounds[1] - cornersOffset.bl[1], bounds[1] - cornersOffset.br[1]),
+            left: Math.max(-cornerOffsets.tl[0], -cornerOffsets.bl[0]),
+            right: Math.min(bounds[0] - cornerOffsets.tr[0], bounds[0] - cornerOffsets.br[0]),
+            top: Math.max(-cornerOffsets.tl[1], -cornerOffsets.tr[1]),
+            bottom: Math.min(bounds[1] - cornerOffsets.bl[1], bounds[1] - cornerOffsets.br[1]),
           });
-          this.corners = Util.mapObj(cornersOffset, (c) => [c[0] + viewCenter[0], c[1] + viewCenter[1]]);
+          this.corners = Util.mapObj(cornerOffsets, (c) => [c[0] + viewCenter[0], c[1] + viewCenter[1]]);
         }
         this.updateCenters();
         this.render();
