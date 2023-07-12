@@ -13,7 +13,7 @@
     "indent": "off",
     "no-fallthrough": "off",
     "linebreak-style": ["error", "unix"],
-    "quotes": ["error", "double"],
+    "quotes": ["error", "double", {"avoidEscape": true}}],
     "semi": "error",
     "prefer-const": "off",
     "no-empty": "off"
