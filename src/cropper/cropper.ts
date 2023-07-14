@@ -7,23 +7,23 @@ export interface CropperTheme {
   cornerGrabberRadius?: number;
   /** Color of corner grabbers */
   cornerGrabberColor?: string;
-  /** Line thickness of edges in rem */
+  /** Line thickness of edges in rem (0 to hide edges) */
   edgeThickness?: number;
   /** Color of edges */
   edgeColor?: string;
-  /** Radius of edge grabbers in rem */
+  /** Radius of edge grabbers in rem (0 to hide edge grabbers) */
   edgeGrabberRadius?: number;
   /** Color of edge grabbers */
   edgeGrabberColor?: string;
-  /** Radius of center grabber in rem */
+  /** Radius of center grabber in rem (0 to hide center grabber) */
   centerGrabberRadius?: number;
   /** Color of center grabber */
   centerGrabberColor?: string;
-  /** Line thickness of crosslines in rem */
+  /** Line thickness of crosslines in rem (0 to hide crosslines) */
   crossLineThickness?: number;
   /** Color of crosslines */
   crossLineColor?: string;
-  /** Radius of zoom lens in rem */
+  /** Radius of zoom lens in rem (0 to hide zoom lens) */
   zoomLensRadius?: number;
   /** Margin between zoom lens and grabber in rem */
   zoomLensMargin?: number;
@@ -375,18 +375,20 @@ export default class Cropper {
       }
 
       //Draw crosslines
-      for (const edgeCenterPair of [
-        [this.edgeCenters.t, this.edgeCenters.b],
-        [this.edgeCenters.l, this.edgeCenters.r],
-      ]) {
-        const edgeCenter0Pt = this.img2ctxPt(edgeCenterPair[0]);
-        const edgeCenter1Pt = this.img2ctxPt(edgeCenterPair[1]);
-        this.ctx.beginPath();
-        this.ctx.strokeStyle = this.options.theme.crossLineColor;
-        this.ctx.lineWidth = this.options.theme.crossLineThickness * this.remPx;
-        this.ctx.moveTo(...edgeCenter0Pt);
-        this.ctx.lineTo(...edgeCenter1Pt);
-        this.ctx.stroke();
+      if (this.options.theme.crossLineThickness) {
+        for (const edgeCenterPair of [
+          [this.edgeCenters.t, this.edgeCenters.b],
+          [this.edgeCenters.l, this.edgeCenters.r],
+        ]) {
+          const edgeCenter0Pt = this.img2ctxPt(edgeCenterPair[0]);
+          const edgeCenter1Pt = this.img2ctxPt(edgeCenterPair[1]);
+          this.ctx.beginPath();
+          this.ctx.strokeStyle = this.options.theme.crossLineColor;
+          this.ctx.lineWidth = this.options.theme.crossLineThickness * this.remPx;
+          this.ctx.moveTo(...edgeCenter0Pt);
+          this.ctx.lineTo(...edgeCenter1Pt);
+          this.ctx.stroke();
+        }
       }
 
       //Draw center grabber
