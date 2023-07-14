@@ -203,4 +203,12 @@ export default class Util {
       return res;
     }, {}) as T;
   }
+
+  public static ptAtAngle(pt: Pt, angle: number, radius: number): Pt {
+    return [pt[0] + radius * Math.cos(angle), pt[1] + radius * Math.sin(angle)];
+  }
+
+  public static angleBetween(pt0: Pt, pt1: Pt): number {
+    return Math.atan2(pt1[1] - pt0[1], pt1[0] - pt0[0]);
+  }
 }
