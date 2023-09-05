@@ -3,6 +3,10 @@ import EdgeDetector from "../edge-detector/edgedetector";
 import Util, { Corners, EdgeCenters, Line, Pt, ViewCenter } from "../util";
 
 export interface CropperTheme {
+  /** Color used for background and margin */
+  backgroundColor?: string;
+  /** Color used for tinting the surroundings of the selected area */
+  surroundingOverlayColor?: string;
   /** Radius of corner grabbers in rem */
   cornerGrabberRadius?: number;
   /** Color of corner grabbers */
@@ -39,8 +43,6 @@ export interface CropperTheme {
   zoomLensBorderColor?: string;
   /** Overlay color of zoom lens */
   zoomLensOverlayColor?: string;
-  /** Color used for background and margin */
-  backgroundColor?: string;
 }
 
 export interface CropperOptions {
@@ -93,6 +95,8 @@ export default class Cropper {
     const defaultOptions: CropperOptions = {
       useEdgeDetection: true,
       theme: {
+        backgroundColor: "black",
+        surroundingOverlayColor: "rgba(0,0,0,0.5)",
         cornerGrabberRadius: 0.5,
         cornerGrabberColor: "white",
         edgeThickness: 0.2,
@@ -110,8 +114,7 @@ export default class Cropper {
         zoomLensFactor: 2,
         zoomLensBorderThickness: options?.theme?.edgeThickness ? options?.theme?.edgeThickness * 0.5 : 0.1,
         zoomLensBorderColor: "black",
-        zoomLensOverlayColor: "rgba(0,0,0,0.25)",
-        backgroundColor: "black",
+        zoomLensOverlayColor: options?.theme?.surroundingOverlayColor ?? "rgba(0,0,0,0.5)",
       },
     };
 
@@ -367,15 +370,73 @@ export default class Cropper {
         const cornerKeys = Object.keys(this.corners);
         const edgeCenterKeys = Object.keys(this.edgeCenters);
 
+        //Draw surrounding overlay
+        if (this.options.theme.surroundingOverlayColor) {
+          this.ctx.beginPath();
+          this.ctx.fillStyle = this.options.theme.surroundingOverlayColor;
+
+          //Path around image
+          this.ctx.moveTo(...this.img2ctxPt([0, 0]));
+          this.ctx.lineTo(...this.img2ctxPt([this.imgW, 0]));
+          this.ctx.lineTo(...this.img2ctxPt([this.imgW, this.imgH]));
+          this.ctx.lineTo(...this.img2ctxPt([0, this.imgH]));
+          this.ctx.lineTo(...this.img2ctxPt([0, 0]));
+          this.ctx.closePath();
+
+          //Path around selected area
+          this.ctx.moveTo(...this.img2ctxPt(this.corners.tl));
+          this.ctx.lineTo(...this.img2ctxPt(this.corners.tr));
+          this.ctx.lineTo(...this.img2ctxPt(this.corners.br));
+          this.ctx.lineTo(...this.img2ctxPt(this.corners.bl));
+          this.ctx.lineTo(...this.img2ctxPt(this.corners.tl));
+          this.ctx.closePath();
+
+          this.ctx.fill("evenodd");
+        }
+
+        //Draw edges
+        if (this.options.theme.edgeThickness) {
+          for (let i = 0; i < cornerKeys.length; i++) {
+            const cornerKey = cornerKeys[i];
+            const nextCornerKey = cornerKeys[(i + 1) % cornerKeys.length];
+            const corner = this.corners[cornerKey];
+            const nextCorner = this.corners[nextCornerKey];
+            const cornerPt = this.img2ctxPt(corner);
+            const nextCornerPt = this.img2ctxPt(nextCorner);
+
+            this.ctx.beginPath();
+            this.ctx.strokeStyle = this.options.theme.edgeColor;
+            this.ctx.lineWidth = this.options.theme.edgeThickness * this.remPx;
+            this.ctx.moveTo(...cornerPt);
+            this.ctx.lineTo(...nextCornerPt);
+            this.ctx.stroke();
+          }
+        }
+
+        //Draw crosslines
+        if (this.options.theme.crossLineThickness) {
+          for (const edgeCenterPair of [
+            [this.edgeCenters.t, this.edgeCenters.b],
+            [this.edgeCenters.l, this.edgeCenters.r],
+          ]) {
+            const edgeCenter0Pt = this.img2ctxPt(edgeCenterPair[0]);
+            const edgeCenter1Pt = this.img2ctxPt(edgeCenterPair[1]);
+            this.ctx.beginPath();
+            this.ctx.strokeStyle = this.options.theme.crossLineColor;
+            this.ctx.lineWidth = this.options.theme.crossLineThickness * this.remPx;
+            this.ctx.moveTo(...edgeCenter0Pt);
+            this.ctx.lineTo(...edgeCenter1Pt);
+            this.ctx.stroke();
+          }
+        }
+
+        //Draw grabbers
         for (let i = 0; i < cornerKeys.length; i++) {
           const cornerKey = cornerKeys[i];
-          const nextCornerKey = cornerKeys[(i + 1) % cornerKeys.length];
           const edgeCenterKey = edgeCenterKeys[i];
           const corner = this.corners[cornerKey];
-          const nextCorner = this.corners[nextCornerKey];
           const edgeCenter = this.edgeCenters[edgeCenterKey];
           const cornerPt = this.img2ctxPt(corner);
-          const nextCornerPt = this.img2ctxPt(nextCorner);
           const edgeCenterPt = this.img2ctxPt(edgeCenter);
 
           //Draw corner
@@ -402,33 +463,6 @@ export default class Cropper {
               2 * Math.PI
             );
             this.ctx.fill();
-          }
-
-          //Draw edge
-          if (this.options.theme.edgeThickness) {
-            this.ctx.beginPath();
-            this.ctx.strokeStyle = this.options.theme.edgeColor;
-            this.ctx.lineWidth = this.options.theme.edgeThickness * this.remPx;
-            this.ctx.moveTo(...cornerPt);
-            this.ctx.lineTo(...nextCornerPt);
-            this.ctx.stroke();
-          }
-        }
-
-        //Draw crosslines
-        if (this.options.theme.crossLineThickness) {
-          for (const edgeCenterPair of [
-            [this.edgeCenters.t, this.edgeCenters.b],
-            [this.edgeCenters.l, this.edgeCenters.r],
-          ]) {
-            const edgeCenter0Pt = this.img2ctxPt(edgeCenterPair[0]);
-            const edgeCenter1Pt = this.img2ctxPt(edgeCenterPair[1]);
-            this.ctx.beginPath();
-            this.ctx.strokeStyle = this.options.theme.crossLineColor;
-            this.ctx.lineWidth = this.options.theme.crossLineThickness * this.remPx;
-            this.ctx.moveTo(...edgeCenter0Pt);
-            this.ctx.lineTo(...edgeCenter1Pt);
-            this.ctx.stroke();
           }
         }
 
