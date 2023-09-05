@@ -3,6 +3,10 @@ import EdgeDetector from "../edge-detector/edgedetector";
 import Util, { Corners, EdgeCenters, Line, Pt, ViewCenter } from "../util";
 
 export interface CropperTheme {
+  /** Color used for background and margin */
+  backgroundColor?: string;
+  /** Color used for tinting the surroundings of the selected area */
+  surroundingOverlayColor?: string;
   /** Radius of corner grabbers in rem */
   cornerGrabberRadius?: number;
   /** Color of corner grabbers */
@@ -19,6 +23,10 @@ export interface CropperTheme {
   centerGrabberRadius?: number;
   /** Color of center grabber */
   centerGrabberColor?: string;
+  /** Factor by which to expand grabbers when hovered */
+  grabberExpansionFactor?: number;
+  /** Factor for scaling grabber hitboxes (increase for touch devices) */
+  grabberHitboxFactor?: number;
   /** Line thickness of crosslines in rem (0 to hide crosslines) */
   crossLineThickness?: number;
   /** Color of crosslines */
@@ -35,8 +43,6 @@ export interface CropperTheme {
   zoomLensBorderColor?: string;
   /** Overlay color of zoom lens */
   zoomLensOverlayColor?: string;
-  /** Color used for background and margin */
-  backgroundColor?: string;
 }
 
 export interface CropperOptions {
@@ -76,16 +82,21 @@ export default class Cropper {
   private rotations = 0;
   /** Grabber that is currently being dragged by the user */
   private dragged: keyof Corners | keyof EdgeCenters | keyof ViewCenter | undefined;
+  /** Grabber that is currently being hovered by the user */
+  private hovered: keyof Corners | keyof EdgeCenters | keyof ViewCenter | undefined;
 
   private onPointerDown: (event: PointerEvent) => void;
   private onPointerMove: (event: PointerEvent) => void;
   private onPointerUp: (event: PointerEvent) => void;
+  private onMouseMove: (event: MouseEvent) => void;
   private onResize = () => this.adjustDimensions();
 
   constructor(canvas: HTMLCanvasElement, img: HTMLImageElement, options?: CropperOptions) {
     const defaultOptions: CropperOptions = {
       useEdgeDetection: true,
       theme: {
+        backgroundColor: "black",
+        surroundingOverlayColor: "rgba(0,0,0,0.5)",
         cornerGrabberRadius: 0.5,
         cornerGrabberColor: "white",
         edgeThickness: 0.2,
@@ -94,6 +105,8 @@ export default class Cropper {
         edgeGrabberColor: options?.theme?.cornerGrabberColor ?? "white",
         centerGrabberRadius: options?.theme?.cornerGrabberRadius ? options.theme.cornerGrabberRadius * 1.2 : 0.6,
         centerGrabberColor: options?.theme?.cornerGrabberColor ?? "rgba(255,255,255,0.5)",
+        grabberExpansionFactor: 1.2,
+        grabberHitboxFactor: 1.5,
         crossLineThickness: options?.theme?.edgeThickness ?? 0.2,
         crossLineColor: options?.theme?.edgeColor ?? "rgba(255,255,255,0.5)",
         zoomLensRadius: options?.theme?.cornerGrabberRadius ? options.theme.cornerGrabberRadius * 8 : 4,
@@ -101,8 +114,7 @@ export default class Cropper {
         zoomLensFactor: 2,
         zoomLensBorderThickness: options?.theme?.edgeThickness ? options?.theme?.edgeThickness * 0.5 : 0.1,
         zoomLensBorderColor: "black",
-        zoomLensOverlayColor: "rgba(0,0,0,0.25)",
-        backgroundColor: "black",
+        zoomLensOverlayColor: options?.theme?.surroundingOverlayColor ?? "rgba(0,0,0,0.5)",
       },
     };
 
@@ -167,7 +179,11 @@ export default class Cropper {
       | undefined;
 
     this.onPointerDown = (event) => {
-      this.dragged = this.getDragged([event.clientX, event.clientY]);
+      event.preventDefault();
+      event.stopPropagation();
+      this.setDragged(this.getGrabber([event.clientX, event.clientY]));
+      if (!this.dragged) return;
+
       bounds = this.rotations % 2 == 0 ? [this.imgW, this.imgH] : [this.imgH, this.imgW];
       if (this.dragged in this.edgeCenters) {
         const edgeCenter = this.edgeCenters[this.dragged];
@@ -218,6 +234,7 @@ export default class Cropper {
 
     this.onPointerMove = (event) => {
       event.preventDefault();
+      event.stopPropagation();
       if (this.dragged) {
         if (this.dragged in this.corners) {
           this.corners[this.dragged] = Util.ptClipBounds(this.cl2imgPt([event.clientX, event.clientY]), bounds);
@@ -253,22 +270,34 @@ export default class Cropper {
       }
     };
 
-    this.onPointerUp = () => {
-      this.dragged = undefined;
+    this.onPointerUp = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.setDragged(undefined);
       window.removeEventListener("pointermove", this.onPointerMove);
       window.removeEventListener("pointerup", this.onPointerUp);
       this.render();
     };
 
+    this.onMouseMove = (event) => {
+      if (this.dragged) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.setHovered(this.getGrabber([event.clientX, event.clientY]));
+      this.render();
+    };
+
     this.canvas.addEventListener("pointerdown", this.onPointerDown);
+    this.canvas.addEventListener("mousemove", this.onMouseMove);
     window.addEventListener("resize", this.onResize);
   }
 
-  private getDragged(clientPt: Pt): keyof Corners | keyof EdgeCenters | keyof ViewCenter | undefined {
+  private getGrabber(clientPt: Pt): keyof Corners | keyof EdgeCenters | keyof ViewCenter | undefined {
     const cursorPt: Pt = this.cl2imgPt(clientPt);
+    const fac = this.remPx * this.options.theme.grabberHitboxFactor;
     let radius: number;
 
-    radius = this.options.theme.cornerGrabberRadius * this.remPx;
+    radius = this.options.theme.cornerGrabberRadius * fac;
     for (const key in this.corners) {
       const corner = this.corners[key];
       if (Util.withinRadius(cursorPt, corner, radius)) {
@@ -276,7 +305,7 @@ export default class Cropper {
       }
     }
 
-    radius = this.options.theme.edgeGrabberRadius * this.remPx;
+    radius = this.options.theme.edgeGrabberRadius * fac;
     for (const key in this.edgeCenters) {
       const corner = this.edgeCenters[key];
       if (Util.withinRadius(cursorPt, corner, radius)) {
@@ -284,7 +313,7 @@ export default class Cropper {
       }
     }
 
-    radius = this.options.theme.centerGrabberRadius * this.remPx;
+    radius = this.options.theme.centerGrabberRadius * fac;
     if (Util.withinRadius(cursorPt, this.viewCenter.c, radius)) {
       return "c";
     }
@@ -310,178 +339,242 @@ export default class Cropper {
   }
 
   private render() {
-    this.ctx.fillStyle = this.options.theme.backgroundColor;
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    window.requestAnimationFrame(() => {
+      this.ctx.fillStyle = this.options.theme.backgroundColor;
+      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    if (this.rotations) {
-      this.ctx.save();
-      this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
-      this.ctx.rotate(this.rotations * (Math.PI / 2));
-      if (this.rotations % 2 == 0) {
-        this.ctx.translate(-this.canvas.width / 2, -this.canvas.height / 2);
-      } else {
-        this.ctx.translate(-this.canvas.height / 2, -this.canvas.width / 2);
+      //Draw image
+      if (this.rotations) {
+        this.ctx.save();
+        this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
+        this.ctx.rotate(this.rotations * (Math.PI / 2));
+        if (this.rotations % 2 == 0) {
+          this.ctx.translate(-this.canvas.width / 2, -this.canvas.height / 2);
+        } else {
+          this.ctx.translate(-this.canvas.height / 2, -this.canvas.width / 2);
+        }
       }
-    }
-    this.ctx.drawImage(
-      this.img,
-      this.options.theme.cornerGrabberRadius * this.remPx,
-      this.options.theme.cornerGrabberRadius * this.remPx,
-      this.imgMat.cols,
-      this.imgMat.rows
-    );
-    if (this.rotations) {
-      this.ctx.restore();
-    }
+      this.ctx.drawImage(
+        this.img,
+        this.options.theme.cornerGrabberRadius * this.remPx,
+        this.options.theme.cornerGrabberRadius * this.remPx,
+        this.imgMat.cols,
+        this.imgMat.rows
+      );
+      if (this.rotations) {
+        this.ctx.restore();
+      }
 
-    if (this.corners) {
-      const cornerKeys = Object.keys(this.corners);
-      const edgeCenterKeys = Object.keys(this.edgeCenters);
+      //Draw UI
+      if (this.corners) {
+        const cornerKeys = Object.keys(this.corners);
+        const edgeCenterKeys = Object.keys(this.edgeCenters);
 
-      for (let i = 0; i < cornerKeys.length; i++) {
-        const cornerKey = cornerKeys[i];
-        const nextCornerKey = cornerKeys[(i + 1) % cornerKeys.length];
-        const edgeCenterKey = edgeCenterKeys[i];
-        const corner = this.corners[cornerKey];
-        const nextCorner = this.corners[nextCornerKey];
-        const edgeCenter = this.edgeCenters[edgeCenterKey];
-        const cornerPt = this.img2ctxPt(corner);
-        const nextCornerPt = this.img2ctxPt(nextCorner);
-        const edgeCenterPt = this.img2ctxPt(edgeCenter);
-
-        //Draw corner
-        this.ctx.beginPath();
-        this.ctx.fillStyle = this.options.theme.cornerGrabberColor;
-        this.ctx.arc(...cornerPt, this.options.theme.cornerGrabberRadius * this.remPx, 0, 2 * Math.PI);
-        this.ctx.fill();
-
-        //Draw edge grabber
-        if (this.options.theme.edgeGrabberRadius) {
+        //Draw surrounding overlay
+        if (this.options.theme.surroundingOverlayColor) {
           this.ctx.beginPath();
-          this.ctx.fillStyle = this.options.theme.edgeGrabberColor;
-          this.ctx.arc(...edgeCenterPt, this.options.theme.edgeGrabberRadius * this.remPx, 0, 2 * Math.PI);
+          this.ctx.fillStyle = this.options.theme.surroundingOverlayColor;
+
+          //Path around image
+          this.ctx.moveTo(...this.img2ctxPt([0, 0]));
+          this.ctx.lineTo(...this.img2ctxPt([this.imgW, 0]));
+          this.ctx.lineTo(...this.img2ctxPt([this.imgW, this.imgH]));
+          this.ctx.lineTo(...this.img2ctxPt([0, this.imgH]));
+          this.ctx.lineTo(...this.img2ctxPt([0, 0]));
+          this.ctx.closePath();
+
+          //Path around selected area
+          this.ctx.moveTo(...this.img2ctxPt(this.corners.tl));
+          this.ctx.lineTo(...this.img2ctxPt(this.corners.tr));
+          this.ctx.lineTo(...this.img2ctxPt(this.corners.br));
+          this.ctx.lineTo(...this.img2ctxPt(this.corners.bl));
+          this.ctx.lineTo(...this.img2ctxPt(this.corners.tl));
+          this.ctx.closePath();
+
+          this.ctx.fill("evenodd");
+        }
+
+        //Draw edges
+        if (this.options.theme.edgeThickness) {
+          for (let i = 0; i < cornerKeys.length; i++) {
+            const cornerKey = cornerKeys[i];
+            const nextCornerKey = cornerKeys[(i + 1) % cornerKeys.length];
+            const corner = this.corners[cornerKey];
+            const nextCorner = this.corners[nextCornerKey];
+            const cornerPt = this.img2ctxPt(corner);
+            const nextCornerPt = this.img2ctxPt(nextCorner);
+
+            this.ctx.beginPath();
+            this.ctx.strokeStyle = this.options.theme.edgeColor;
+            this.ctx.lineWidth = this.options.theme.edgeThickness * this.remPx;
+            this.ctx.moveTo(...cornerPt);
+            this.ctx.lineTo(...nextCornerPt);
+            this.ctx.stroke();
+          }
+        }
+
+        //Draw crosslines
+        if (this.options.theme.crossLineThickness) {
+          for (const edgeCenterPair of [
+            [this.edgeCenters.t, this.edgeCenters.b],
+            [this.edgeCenters.l, this.edgeCenters.r],
+          ]) {
+            const edgeCenter0Pt = this.img2ctxPt(edgeCenterPair[0]);
+            const edgeCenter1Pt = this.img2ctxPt(edgeCenterPair[1]);
+            this.ctx.beginPath();
+            this.ctx.strokeStyle = this.options.theme.crossLineColor;
+            this.ctx.lineWidth = this.options.theme.crossLineThickness * this.remPx;
+            this.ctx.moveTo(...edgeCenter0Pt);
+            this.ctx.lineTo(...edgeCenter1Pt);
+            this.ctx.stroke();
+          }
+        }
+
+        //Draw grabbers
+        for (let i = 0; i < cornerKeys.length; i++) {
+          const cornerKey = cornerKeys[i];
+          const edgeCenterKey = edgeCenterKeys[i];
+          const corner = this.corners[cornerKey];
+          const edgeCenter = this.edgeCenters[edgeCenterKey];
+          const cornerPt = this.img2ctxPt(corner);
+          const edgeCenterPt = this.img2ctxPt(edgeCenter);
+
+          //Draw corner
+          const cornerRadiusFactor = this.hovered === cornerKey ? this.options.theme.grabberExpansionFactor : 1.0;
+          this.ctx.beginPath();
+          this.ctx.fillStyle = this.options.theme.cornerGrabberColor;
+          this.ctx.arc(
+            ...cornerPt,
+            this.options.theme.cornerGrabberRadius * this.remPx * cornerRadiusFactor,
+            0,
+            2 * Math.PI
+          );
+          this.ctx.fill();
+
+          //Draw edge grabber
+          if (this.options.theme.edgeGrabberRadius) {
+            const edgeRadiusFactor = this.hovered === edgeCenterKey ? this.options.theme.grabberExpansionFactor : 1.0;
+            this.ctx.beginPath();
+            this.ctx.fillStyle = this.options.theme.edgeGrabberColor;
+            this.ctx.arc(
+              ...edgeCenterPt,
+              this.options.theme.edgeGrabberRadius * this.remPx * edgeRadiusFactor,
+              0,
+              2 * Math.PI
+            );
+            this.ctx.fill();
+          }
+        }
+
+        //Draw center grabber
+        if (this.options.theme.centerGrabberRadius) {
+          const centerRadiusFactor = this.hovered === "c" ? this.options.theme.grabberExpansionFactor : 1.0;
+          const viewCenterPt = this.img2ctxPt(this.viewCenter.c);
+          this.ctx.beginPath();
+          this.ctx.fillStyle = this.options.theme.centerGrabberColor;
+          this.ctx.arc(
+            ...viewCenterPt,
+            this.options.theme.centerGrabberRadius * this.remPx * centerRadiusFactor,
+            0,
+            2 * Math.PI
+          );
           this.ctx.fill();
         }
 
-        //Draw edge
-        if (this.options.theme.edgeThickness) {
+        //Draw zoom lens
+        if (this.options.theme.zoomLensRadius && this.dragged && !(this.dragged in this.viewCenter)) {
+          let draggedPt: Pt;
+          let lensOffset: [number, number];
+          let angleFrom: number;
+          let angleTo: number;
+
+          if (this.dragged in this.corners) {
+            draggedPt = this.corners[this.dragged];
+            lensOffset = { tl: [1, 1], tr: [-1, 1], br: [-1, -1], bl: [1, -1] }[this.dragged];
+
+            angleFrom = Util.angleBetween(
+              this.corners[this.dragged],
+              this.corners[Util.rotateKey(this.corners, this.dragged, -1)]
+            );
+            angleTo = Util.angleBetween(
+              this.corners[this.dragged],
+              this.corners[Util.rotateKey(this.corners, this.dragged, 1)]
+            );
+          } else if (this.dragged in this.edgeCenters) {
+            draggedPt = this.edgeCenters[this.dragged];
+            lensOffset = { t: [0, 1], r: [-1, 0], b: [0, -1], l: [1, 0] }[this.dragged];
+
+            const cornerKeys = Object.keys(this.corners) as (keyof Corners)[];
+            const edgeCenterKeys = Object.keys(this.edgeCenters) as (keyof EdgeCenters)[];
+            const edgeCenterKeyIndex = edgeCenterKeys.indexOf(this.dragged as keyof EdgeCenters);
+            const cornerFromKey = cornerKeys[Util.rotateVal(edgeCenterKeyIndex, 0, cornerKeys.length)];
+            angleFrom = Util.angleBetween(this.edgeCenters[this.dragged], this.corners[cornerFromKey]);
+            angleTo = angleFrom + Math.PI;
+          }
+
+          let lensPt = this.img2ctxPt(draggedPt);
+          lensPt = [
+            lensPt[0] +
+              lensOffset[0] * (this.options.theme.zoomLensRadius + this.options.theme.zoomLensMargin) * this.remPx,
+            lensPt[1] +
+              lensOffset[1] * (this.options.theme.zoomLensRadius + this.options.theme.zoomLensMargin) * this.remPx,
+          ];
+
+          const lensRadius = this.options.theme.zoomLensRadius * this.remPx;
+          const magnifiedLensRadius = lensRadius / (this.options.theme.zoomLensFactor || 1);
+
+          //Draw zoom lens border
           this.ctx.beginPath();
-          this.ctx.strokeStyle = this.options.theme.edgeColor;
-          this.ctx.lineWidth = this.options.theme.edgeThickness * this.remPx;
-          this.ctx.moveTo(...cornerPt);
-          this.ctx.lineTo(...nextCornerPt);
+          this.ctx.strokeStyle = this.options.theme.zoomLensBorderColor;
+          this.ctx.lineWidth = this.options.theme.zoomLensBorderThickness * this.remPx;
+          this.ctx.arc(...lensPt, lensRadius, 0, 2 * Math.PI);
           this.ctx.stroke();
-        }
-      }
 
-      //Draw crosslines
-      if (this.options.theme.crossLineThickness) {
-        for (const edgeCenterPair of [
-          [this.edgeCenters.t, this.edgeCenters.b],
-          [this.edgeCenters.l, this.edgeCenters.r],
-        ]) {
-          const edgeCenter0Pt = this.img2ctxPt(edgeCenterPair[0]);
-          const edgeCenter1Pt = this.img2ctxPt(edgeCenterPair[1]);
+          //Draw zoom lens img
+          this.ctx.save();
           this.ctx.beginPath();
-          this.ctx.strokeStyle = this.options.theme.crossLineColor;
-          this.ctx.lineWidth = this.options.theme.crossLineThickness * this.remPx;
-          this.ctx.moveTo(...edgeCenter0Pt);
-          this.ctx.lineTo(...edgeCenter1Pt);
-          this.ctx.stroke();
-        }
-      }
-
-      //Draw center grabber
-      if (this.options.theme.centerGrabberRadius) {
-        const viewCenterPt = this.img2ctxPt(this.viewCenter.c);
-        this.ctx.beginPath();
-        this.ctx.fillStyle = this.options.theme.centerGrabberColor;
-        this.ctx.arc(...viewCenterPt, this.options.theme.centerGrabberRadius * this.remPx, 0, 2 * Math.PI);
-        this.ctx.fill();
-      }
-
-      //Draw zoom lens
-      if (this.options.theme.zoomLensRadius && this.dragged && !(this.dragged in this.viewCenter)) {
-        let draggedPt: Pt;
-        let lensOffset: [number, number];
-        let angleFrom: number;
-        let angleTo: number;
-
-        if (this.dragged in this.corners) {
-          draggedPt = this.corners[this.dragged];
-          lensOffset = { tl: [1, 1], tr: [-1, 1], br: [-1, -1], bl: [1, -1] }[this.dragged];
-
-          angleFrom = Util.angleBetween(
-            this.corners[this.dragged],
-            this.corners[Util.rotateKey(this.corners, this.dragged, -1)]
+          this.ctx.arc(...lensPt, this.options.theme.zoomLensRadius * this.remPx, 0, 2 * Math.PI);
+          this.ctx.clip();
+          this.ctx.fillStyle = this.options.theme.backgroundColor;
+          this.ctx.fillRect(lensPt[0] - lensRadius, lensPt[1] - lensRadius, lensRadius * 2, lensRadius * 2);
+          this.ctx.drawImage(
+            this.img,
+            draggedPt[0] - magnifiedLensRadius,
+            draggedPt[1] - magnifiedLensRadius,
+            magnifiedLensRadius * 2,
+            magnifiedLensRadius * 2,
+            lensPt[0] - lensRadius,
+            lensPt[1] - lensRadius,
+            lensRadius * 2,
+            lensRadius * 2
           );
-          angleTo = Util.angleBetween(
-            this.corners[this.dragged],
-            this.corners[Util.rotateKey(this.corners, this.dragged, 1)]
-          );
-        } else if (this.dragged in this.edgeCenters) {
-          draggedPt = this.edgeCenters[this.dragged];
-          lensOffset = { t: [0, 1], r: [-1, 0], b: [0, -1], l: [1, 0] }[this.dragged];
+          this.ctx.restore();
 
-          const cornerKeys = Object.keys(this.corners) as (keyof Corners)[];
-          const edgeCenterKeys = Object.keys(this.edgeCenters) as (keyof EdgeCenters)[];
-          const edgeCenterKeyIndex = edgeCenterKeys.indexOf(this.dragged as keyof EdgeCenters);
-          const cornerFromKey = cornerKeys[Util.rotateVal(edgeCenterKeyIndex, 0, cornerKeys.length)];
-          angleFrom = Util.angleBetween(this.edgeCenters[this.dragged], this.corners[cornerFromKey]);
-          angleTo = angleFrom + Math.PI;
+          //Draw crop overlay
+          this.ctx.beginPath();
+          this.ctx.fillStyle = this.options.theme.zoomLensOverlayColor;
+          this.ctx.moveTo(...lensPt);
+          this.ctx.lineTo(...Util.ptAtAngle(lensPt, angleFrom, lensRadius));
+          this.ctx.arc(...lensPt, lensRadius, angleFrom, angleTo);
+          this.ctx.lineTo(...lensPt);
+          this.ctx.fill();
         }
-
-        let lensPt = this.img2ctxPt(draggedPt);
-        lensPt = [
-          lensPt[0] +
-            lensOffset[0] * (this.options.theme.zoomLensRadius + this.options.theme.zoomLensMargin) * this.remPx,
-          lensPt[1] +
-            lensOffset[1] * (this.options.theme.zoomLensRadius + this.options.theme.zoomLensMargin) * this.remPx,
-        ];
-
-        const lensRadius = this.options.theme.zoomLensRadius * this.remPx;
-        const magnifiedLensRadius = lensRadius / (this.options.theme.zoomLensFactor || 1);
-
-        //Draw zoom lens border
-        this.ctx.beginPath();
-        this.ctx.strokeStyle = this.options.theme.zoomLensBorderColor;
-        this.ctx.lineWidth = this.options.theme.zoomLensBorderThickness * this.remPx;
-        this.ctx.arc(...lensPt, lensRadius, 0, 2 * Math.PI);
-        this.ctx.stroke();
-
-        //Draw zoom lens img
-        this.ctx.save();
-        this.ctx.beginPath();
-        this.ctx.arc(...lensPt, this.options.theme.zoomLensRadius * this.remPx, 0, 2 * Math.PI);
-        this.ctx.clip();
-        this.ctx.fillStyle = this.options.theme.backgroundColor;
-        this.ctx.fillRect(lensPt[0] - lensRadius, lensPt[1] - lensRadius, lensRadius * 2, lensRadius * 2);
-        this.ctx.drawImage(
-          this.img,
-          draggedPt[0] - magnifiedLensRadius,
-          draggedPt[1] - magnifiedLensRadius,
-          magnifiedLensRadius * 2,
-          magnifiedLensRadius * 2,
-          lensPt[0] - lensRadius,
-          lensPt[1] - lensRadius,
-          lensRadius * 2,
-          lensRadius * 2
-        );
-        this.ctx.restore();
-
-        //Draw crop overlay
-        this.ctx.beginPath();
-        this.ctx.fillStyle = this.options.theme.zoomLensOverlayColor;
-        this.ctx.moveTo(...lensPt);
-        this.ctx.lineTo(...Util.ptAtAngle(lensPt, angleFrom, lensRadius));
-        this.ctx.arc(...lensPt, lensRadius, angleFrom, angleTo);
-        this.ctx.lineTo(...lensPt);
-        this.ctx.fill();
+      } else {
+        this.ctx.fillStyle = "rgba(0,0,0,0.5)";
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
       }
-    } else {
-      this.ctx.fillStyle = "rgba(0,0,0,0.5)";
-      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    }
+    });
+  }
+
+  public setDragged(dragged: keyof Corners | keyof EdgeCenters | keyof ViewCenter | undefined) {
+    this.dragged = dragged;
+    this.canvas.style.cursor = dragged ? "grabbing" : "default";
+    this.setHovered(dragged);
+  }
+
+  public setHovered(hovered: keyof Corners | keyof EdgeCenters | keyof ViewCenter | undefined) {
+    this.hovered = hovered;
+    if (!this.dragged) this.canvas.style.cursor = hovered ? "grab" : "default";
   }
 
   /** Returns image cropped according to current position of draggable corners */
