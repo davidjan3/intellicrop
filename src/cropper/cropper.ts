@@ -96,7 +96,7 @@ export default class Cropper {
       useEdgeDetection: true,
       theme: {
         backgroundColor: "black",
-        surroundingOverlayColor: "rgba(0,0,0,0.5)",
+        surroundingOverlayColor: "rgba(0,0,0,0.333)",
         cornerGrabberRadius: 0.5,
         cornerGrabberColor: "white",
         edgeThickness: 0.2,
@@ -114,7 +114,7 @@ export default class Cropper {
         zoomLensFactor: 2,
         zoomLensBorderThickness: options?.theme?.edgeThickness ? options?.theme?.edgeThickness * 0.5 : 0.1,
         zoomLensBorderColor: "black",
-        zoomLensOverlayColor: options?.theme?.surroundingOverlayColor ?? "rgba(0,0,0,0.5)",
+        zoomLensOverlayColor: options?.theme?.surroundingOverlayColor ?? "rgba(0,0,0,0.333)",
       },
     };
 
