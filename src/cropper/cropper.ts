@@ -255,15 +255,18 @@ export default class Cropper {
             ];
           }
         } else if (this.dragged in this.viewCenter) {
-          const { cornerOffsets } = centerDragProps;
+          const offsetArray = Object.values(centerDragProps.cornerOffsets) as Pt[];
 
           const viewCenter = Util.ptClipBoundsRect(this.cl2imgPt([event.clientX, event.clientY]), {
-            left: Math.max(-cornerOffsets.tl[0], -cornerOffsets.bl[0]),
-            right: Math.min(bounds[0] - cornerOffsets.tr[0], bounds[0] - cornerOffsets.br[0]),
-            top: Math.max(-cornerOffsets.tl[1], -cornerOffsets.tr[1]),
-            bottom: Math.min(bounds[1] - cornerOffsets.bl[1], bounds[1] - cornerOffsets.br[1]),
+            left: Math.max(...offsetArray.map((co) => -co[0])),
+            right: Math.min(...offsetArray.map((co) => bounds[0] - co[0])),
+            top: Math.max(...offsetArray.map((co) => -co[1])),
+            bottom: Math.min(...offsetArray.map((co) => bounds[1] - co[1])),
           });
-          this.corners = Util.mapObj(cornerOffsets, (c) => [c[0] + viewCenter[0], c[1] + viewCenter[1]]);
+          this.corners = Util.mapObj(centerDragProps.cornerOffsets, (c) => [
+            c[0] + viewCenter[0],
+            c[1] + viewCenter[1],
+          ]);
         }
         this.updateCenters();
         this.render();
