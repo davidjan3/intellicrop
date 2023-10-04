@@ -377,9 +377,9 @@ export default class Cropper {
 
           //Path around image
           this.ctx.moveTo(...this.img2ctxPt([0, 0]));
-          this.ctx.lineTo(...this.img2ctxPt([this.imgW, 0]));
-          this.ctx.lineTo(...this.img2ctxPt([this.imgW, this.imgH]));
-          this.ctx.lineTo(...this.img2ctxPt([0, this.imgH]));
+          this.ctx.lineTo(...this.img2ctxPt([this.imgMat.cols, 0]));
+          this.ctx.lineTo(...this.img2ctxPt([this.imgMat.cols, this.imgMat.rows]));
+          this.ctx.lineTo(...this.img2ctxPt([0, this.imgMat.rows]));
           this.ctx.lineTo(...this.img2ctxPt([0, 0]));
           this.ctx.closePath();
 
