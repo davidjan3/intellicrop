@@ -344,25 +344,24 @@ export default class Cropper {
       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
       //Draw image
+      let xOffset = 0;
+      let yOffset = 0;
       if (this.rotations) {
-        this.ctx.save();
         this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
         this.ctx.rotate(this.rotations * (Math.PI / 2));
-        if (this.rotations % 2 == 0) {
-          this.ctx.translate(-this.canvas.width / 2, -this.canvas.height / 2);
-        } else {
-          this.ctx.translate(-this.canvas.height / 2, -this.canvas.width / 2);
-        }
+        xOffset = this.rotations % 2 == 0 ? -this.canvas.width / 2 : -this.canvas.height / 2;
+        yOffset = this.rotations % 2 == 0 ? -this.canvas.height / 2 : -this.canvas.width / 2;
       }
       this.ctx.drawImage(
         this.img,
-        this.options.theme.cornerGrabberRadius * this.remPx,
-        this.options.theme.cornerGrabberRadius * this.remPx,
+        xOffset + this.options.theme.cornerGrabberRadius * this.remPx,
+        yOffset + this.options.theme.cornerGrabberRadius * this.remPx,
         this.imgMat.cols,
         this.imgMat.rows
       );
       if (this.rotations) {
-        this.ctx.restore();
+        this.ctx.rotate(-this.rotations * (Math.PI / 2));
+        this.ctx.translate(-this.canvas.width / 2, -this.canvas.height / 2);
       }
 
       //Draw UI
@@ -511,6 +510,8 @@ export default class Cropper {
             angleFrom = Util.angleBetween(this.edgeCenters[this.dragged], this.corners[cornerFromKey]);
             angleTo = angleFrom + Math.PI;
           }
+          angleFrom += this.rotations * (Math.PI / 2);
+          angleTo += this.rotations * (Math.PI / 2);
 
           let lensPt = this.img2ctxPt(draggedPt);
           lensPt = [
