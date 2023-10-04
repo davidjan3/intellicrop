@@ -255,15 +255,18 @@ export default class Cropper {
             ];
           }
         } else if (this.dragged in this.viewCenter) {
-          const { cornerOffsets } = centerDragProps;
+          const offsetArray = Object.values(centerDragProps.cornerOffsets) as Pt[];
 
           const viewCenter = Util.ptClipBoundsRect(this.cl2imgPt([event.clientX, event.clientY]), {
-            left: Math.max(-cornerOffsets.tl[0], -cornerOffsets.bl[0]),
-            right: Math.min(bounds[0] - cornerOffsets.tr[0], bounds[0] - cornerOffsets.br[0]),
-            top: Math.max(-cornerOffsets.tl[1], -cornerOffsets.tr[1]),
-            bottom: Math.min(bounds[1] - cornerOffsets.bl[1], bounds[1] - cornerOffsets.br[1]),
+            left: Math.max(...offsetArray.map((co) => -co[0])),
+            right: Math.min(...offsetArray.map((co) => bounds[0] - co[0])),
+            top: Math.max(...offsetArray.map((co) => -co[1])),
+            bottom: Math.min(...offsetArray.map((co) => bounds[1] - co[1])),
           });
-          this.corners = Util.mapObj(cornerOffsets, (c) => [c[0] + viewCenter[0], c[1] + viewCenter[1]]);
+          this.corners = Util.mapObj(centerDragProps.cornerOffsets, (c) => [
+            c[0] + viewCenter[0],
+            c[1] + viewCenter[1],
+          ]);
         }
         this.updateCenters();
         this.render();
@@ -344,25 +347,24 @@ export default class Cropper {
       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
       //Draw image
+      let xOffset = 0;
+      let yOffset = 0;
       if (this.rotations) {
-        this.ctx.save();
         this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
         this.ctx.rotate(this.rotations * (Math.PI / 2));
-        if (this.rotations % 2 == 0) {
-          this.ctx.translate(-this.canvas.width / 2, -this.canvas.height / 2);
-        } else {
-          this.ctx.translate(-this.canvas.height / 2, -this.canvas.width / 2);
-        }
+        xOffset = this.rotations % 2 == 0 ? -this.canvas.width / 2 : -this.canvas.height / 2;
+        yOffset = this.rotations % 2 == 0 ? -this.canvas.height / 2 : -this.canvas.width / 2;
       }
       this.ctx.drawImage(
         this.img,
-        this.options.theme.cornerGrabberRadius * this.remPx,
-        this.options.theme.cornerGrabberRadius * this.remPx,
+        xOffset + this.options.theme.cornerGrabberRadius * this.remPx,
+        yOffset + this.options.theme.cornerGrabberRadius * this.remPx,
         this.imgMat.cols,
         this.imgMat.rows
       );
       if (this.rotations) {
-        this.ctx.restore();
+        this.ctx.rotate(-this.rotations * (Math.PI / 2));
+        this.ctx.translate(-this.canvas.width / 2, -this.canvas.height / 2);
       }
 
       //Draw UI
@@ -377,9 +379,9 @@ export default class Cropper {
 
           //Path around image
           this.ctx.moveTo(...this.img2ctxPt([0, 0]));
-          this.ctx.lineTo(...this.img2ctxPt([this.imgW, 0]));
-          this.ctx.lineTo(...this.img2ctxPt([this.imgW, this.imgH]));
-          this.ctx.lineTo(...this.img2ctxPt([0, this.imgH]));
+          this.ctx.lineTo(...this.img2ctxPt([this.imgMat.cols, 0]));
+          this.ctx.lineTo(...this.img2ctxPt([this.imgMat.cols, this.imgMat.rows]));
+          this.ctx.lineTo(...this.img2ctxPt([0, this.imgMat.rows]));
           this.ctx.lineTo(...this.img2ctxPt([0, 0]));
           this.ctx.closePath();
 
@@ -511,6 +513,8 @@ export default class Cropper {
             angleFrom = Util.angleBetween(this.edgeCenters[this.dragged], this.corners[cornerFromKey]);
             angleTo = angleFrom + Math.PI;
           }
+          angleFrom += this.rotations * (Math.PI / 2);
+          angleTo += this.rotations * (Math.PI / 2);
 
           let lensPt = this.img2ctxPt(draggedPt);
           lensPt = [
@@ -537,6 +541,11 @@ export default class Cropper {
           this.ctx.clip();
           this.ctx.fillStyle = this.options.theme.backgroundColor;
           this.ctx.fillRect(lensPt[0] - lensRadius, lensPt[1] - lensRadius, lensRadius * 2, lensRadius * 2);
+          if (this.rotations) {
+            this.ctx.translate(lensPt[0], lensPt[1]);
+            this.ctx.rotate(this.rotations * (Math.PI / 2));
+            this.ctx.translate(-lensPt[0], -lensPt[1]);
+          }
           this.ctx.drawImage(
             this.img,
             draggedPt[0] - magnifiedLensRadius,
