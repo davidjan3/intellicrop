@@ -538,6 +538,11 @@ export default class Cropper {
           this.ctx.clip();
           this.ctx.fillStyle = this.options.theme.backgroundColor;
           this.ctx.fillRect(lensPt[0] - lensRadius, lensPt[1] - lensRadius, lensRadius * 2, lensRadius * 2);
+          if (this.rotations) {
+            this.ctx.translate(lensPt[0], lensPt[1]);
+            this.ctx.rotate(this.rotations * (Math.PI / 2));
+            this.ctx.translate(-lensPt[0], -lensPt[1]);
+          }
           this.ctx.drawImage(
             this.img,
             draggedPt[0] - magnifiedLensRadius,
