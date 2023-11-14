@@ -10,6 +10,7 @@ export default class EdgeDetector {
   private static readonly THETA_THRES = 4 * (Math.PI / 180);
   private static readonly MAX_TILT = 35 * (Math.PI / 180);
   private static readonly PARSE_LINES_AMOUNT = 8;
+  private static readonly MIN_AREA = 0.2;
 
   static detect(src: cv.Mat, debugCanvas?: HTMLCanvasElement): Corners | undefined {
     const srcW = src.cols;
@@ -71,8 +72,8 @@ export default class EdgeDetector {
       cv.imshow(debugCanvas, debugDst);
     }
 
+    const imgArea = Util.area(boundaryCorners);
     if (intersections.length > 4) {
-      const imgArea = Util.area(boundaryCorners);
       const cornersArr = this.getScoredCorners(intersections, imgArea);
 
       if (cornersArr.length) {
@@ -80,7 +81,12 @@ export default class EdgeDetector {
       }
     }
 
-    return this.getOutmostCorners(intersections, boundaryCorners)?.corners ?? undefined;
+    const outmostCorners = this.getOutmostCorners(intersections, boundaryCorners)?.corners;
+    if (outmostCorners && Util.area(outmostCorners) / imgArea > this.MIN_AREA) {
+      return outmostCorners;
+    }
+
+    return undefined;
   }
 
   private static parseLines(mat: cv.Mat, imgDiag: number) {
@@ -176,7 +182,7 @@ export default class EdgeDetector {
               bl: bl.pt,
             };
             const areaScore = Util.area(corners) / imgArea;
-            if (areaScore > 0.2) {
+            if (areaScore > this.MIN_AREA) {
               cornersArr.push({
                 corners: corners,
                 score: tl.score + tr.score + br.score + bl.score + areaScore,

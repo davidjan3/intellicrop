@@ -1,5 +1,5 @@
 //test for Util.closestPoint, which returns the closest point on a houghline to a given point:
-import Util, { Line, Pt } from "./util";
+import Util, { Corners, Line, Pt } from "./util";
 
 describe("Util.closestPoint", () => {
   it("should return the closest point on a houghline to a given point", () => {
@@ -94,6 +94,32 @@ describe("Util.mapObj", () => {
       const obj = { a: "1", b: "2", c: "3" };
       const mapped = Util.mapObj(obj, (v, k) => v + k);
       expect(JSON.stringify(mapped)).toEqual('{"a":"1a","b":"2b","c":"3c"}');
+    }
+  });
+});
+
+describe("Util.area", () => {
+  it("should return the area of a corners object", () => {
+    {
+      const corners: Corners = {
+        tl: [0, 0],
+        tr: [10, 0],
+        br: [10, 10],
+        bl: [0, 10],
+      };
+      const area = Util.area(corners);
+      expect(area).toEqual(100);
+    }
+
+    {
+      const corners: Corners = {
+        tl: [10, 0],
+        tr: [20, 0],
+        br: [30, 10],
+        bl: [0, 10],
+      };
+      const area = Util.area(corners);
+      expect(area).toEqual(200);
     }
   });
 });
