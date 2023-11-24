@@ -24,7 +24,8 @@ const canvas = document.getElementById("your-canvas");
 const img = document.getElementById("your-source-img");
 let cropper;
 
-img.onload = () => {
+img.onload = async () => {
+    await Cropper.initialization(); //Wait for OpenCV to become available
     cropper = new Cropper(canvas, img);
 }
 ```
@@ -44,7 +45,7 @@ If you want to disable edge detection or change some cosmetics of the Cropper UI
 cropper = new Cropper(canvas, img, {
     useEdgeDetection: true,
     theme: {
-        lineColor: "red",
+        edgeColor: "red",
         ...
     },
     ...

@@ -5,6 +5,7 @@
     "target": "es6",
     "lib": ["es6", "dom"],
     "baseUrl": "./src",
-    "sourceMap": true
+    "sourceMap": true,
+    "esModuleInterop": true
   }
 }
