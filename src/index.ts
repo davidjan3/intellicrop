@@ -19,8 +19,9 @@ fileUploadInput?.addEventListener(
 
 let cropper: Cropper;
 
-srcImage.onload = () => {
+srcImage.onload = async () => {
   cropper?.discard();
+  await Cropper.initialization();
   cropper = new Cropper(cropperCanvas, srcImage, {
     useEdgeDetection: true,
     debugCanvas: debugCanvas,

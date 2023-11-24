@@ -1,4 +1,4 @@
-import * as cv from "@techstark/opencv-js/";
+import cv from "@techstark/opencv-js/";
 import EdgeDetector from "../edge-detector/edgedetector";
 import Util, { Corners, EdgeCenters, Line, Pt, ViewCenter } from "../util";
 
@@ -90,6 +90,22 @@ export default class Cropper {
   private onPointerUp: (event: PointerEvent) => void;
   private onMouseMove: (event: MouseEvent) => void;
   private onResize = () => this.adjustDimensions();
+
+  public static async initialization() {
+    return new Promise<void>((resolve) => {
+      if (cv.getBuildInformation) {
+        resolve();
+      } else {
+        cv.onRuntimeInitialized = () => {
+          resolve();
+        };
+      }
+    });
+  }
+
+  public static isReady() {
+    return !!cv.getBuildInformation;
+  }
 
   constructor(canvas: HTMLCanvasElement, img: HTMLImageElement, options?: CropperOptions) {
     const defaultOptions: CropperOptions = {
