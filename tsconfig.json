@@ -3,7 +3,7 @@
     "outDir": "./dist/",
     "module": "commonjs",
     "target": "es6",
-    "lib": ["es6", "dom"],
+    "lib": ["es6", "dom", "es2017.object"],
     "baseUrl": "./src",
     "sourceMap": true,
     "esModuleInterop": true
