@@ -1,3 +1,7 @@
+# Intellicrop
+
+[![1.0.2](https://img.shields.io/npm/v/intellicrop)](https://www.npmjs.com/package/intellicrop)
+
 Simple JavaScript solution to edge detection assisted image cropping.
 
 ---
